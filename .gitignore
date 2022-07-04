@@ -1,0 +1,9 @@
+/.ipynb_checkpoints
+/.mypy_cache
+/Old
+/Other
+/blackjack_other*
+/tmp
+
+/data/Blackjack House Edge - Wizard of Odds.html
+/data/*_hand_calc_Rules*.pickle
