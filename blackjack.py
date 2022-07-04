@@ -106,8 +106,7 @@
 
 # %%
 # https://github.com/hhoppe/hhoppe-tools/blob/main/hhoppe_tools/__init__.py
-# !pip install -qU hhoppe-tools
-# !pip install -q matplotlib 'numba>=0.55.1' tqdm
+# !pip install -q hhoppe-tools matplotlib 'numba>=0.55.1' tqdm
 
 # %%
 import collections
