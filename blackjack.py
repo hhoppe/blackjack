@@ -36,7 +36,7 @@
 #      for cut-card effects and precise split-hand rewards.
 #
 # - Support for many [rule variations](#Define-Rules)
-#   \(12 parameters including #decks, dealer hit soft17, cut-card, ...)
+#   \(12 parameters including #decks, dealer hit soft17, cut-card, ...).
 #
 # - Optimal [action tables](#Tables-for-basic-strategy) for
 #   [basic strategy](#Define-Action-and-Strategy)
@@ -44,17 +44,17 @@
 #   [Wikipedia](https://en.wikipedia.org/wiki/Blackjack#Basic_strategy) and
 #   [WizardOfOdds](https://wizardofodds.com/games/blackjack/strategy/calculator/) results.
 #
-# - Six separate [composition-dependent strategies](#Define-Action-and-Strategy)
-#   based on different levels of *attention*.
+# - Six [composition-dependent strategies](#Define-Action-and-Strategy)
+#   based on progressively greater levels of *attention*.
 #   <!--(initial cards, all hand cards, cards in *prior split hands*, ...).-->
 #
 # - Computation of
 #   [house edge](#House-edge-results)
 #   under any rules, with either basic or composition-dependent strategies.
 #
-# - Comparisons with online
-#   [hand calculator](#Hand-calculator-results) and
-#   [house edge calculator](#House-edge-results) results.
+# - Comparisons with results from online
+#   [hand calculators](#Hand-calculator-results) and
+#   [house edge calculators](#House-edge-results).
 #
 # - Novel analysis and visualization of the
 #   [*cut-card effect*](#Effect-of-using-a-cut-card)
@@ -74,22 +74,21 @@
 # **Running this Jupyter notebook**:
 # - The notebook requires Python 3.7 or later.
 # - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU. <br/>
-#   (The notebook can also be executed on a
-#   [Colab server](
+#   (The notebook can also be [executed on a Colab server](
 #    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
 #   but it runs ~20x slower due to the older, shared processor.)
-# - Within a Linux environment (e.g.,
+# - Configure a Linux environment (e.g.,
 #   [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install)):
 #
 # ```bash
 #     sudo apt install python3-pip
 #     python3 -m pip install --upgrade pip
-#     pip install jupyterlab jupytext matplotlib numba tqdm
+#     pip install jupyterlab jupytext
 #     jupyter lab --no-browser
 # ```
 #
 # - Open the URL (output by `jupyter lab`) using a web browser (e.g., Google Chrome on Windows).
-# - Load the notebook (`*.ipynb` file).
+# - Load the notebook (`blackjack.ipynb` file).
 # - Evaluate all cells in `Code library` and then selectively evaluate `Results`.
 # - Adjust the `EFFORT` global variable to trade off speed and accuracy.
 
@@ -143,12 +142,12 @@ import numpy as np
 import tqdm
 
 # %%
-EFFORT = 3  # (In Python 3.8: Literal[0, 1, 2, 3])
+EFFORT = 0  # (In Python 3.8: Literal[0, 1, 2, 3])
 """Controls the breadth and precision of the notebook experiments:
-- 0: Fast subset of experiments, at low precision (~4 minutes).
-- 1: Most experiments, at normal precision (~45 minutes).
-- 2: All experiments, at high precision (~8 hours).
-- 3: Run at even higher precision (~40 hours), likely on isolated experiments.""";
+- 0: Fast subset of experiments, at low precision (~3 minutes).
+- 1: Most experiments, at normal precision (~40 minutes).
+- 2: All experiments, at high precision (~7 hours).
+- 3: Run at even higher precision (>40 hours), likely on isolated experiments.""";
 
 # %% tags=[]
 RECOMPUTE_CUT_CARD_ANALYSIS = False
@@ -229,7 +228,7 @@ def temporary_effort(effort: int) -> Iterator[None]:
 tqdm_stdout = functools.partial(
     tqdm.tqdm, leave=False, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
     bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]')
-"""Progress bar customized to show only a short ascii text line on stdout.""";
+"""Progress bar customized to show a short ascii text line on stdout.""";
 # Notes: tqdm uses '\r' and overwrites with spaces (annoying for copy-paste);
 # jupyterlab does not correctly handle more than two backspaces ('\b');
 # `tqdm.notebook.tqdm()`, which displays HTML, does not work with multiprocessing and does not
@@ -2089,7 +2088,7 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> Tuple[_ND
   split_table = np.empty((10, 10), dtype=bool)  # card1=[1..10] dealer1=[1..10].
   for index in np.ndindex(split_table.shape):
     card1, dealer1 = index[0] + 1, index[1] + 1
-    state: State = (card1, card1), dealer1, ()
+    state: State = ((card1, card1), dealer1, ())
     action = get_best_action(state, rules, strategy)
     split_table[index] = action is Action.SPLIT
 
@@ -3494,8 +3493,7 @@ class BjstratHouseEdgeCalculator(HouseEdgeFromHandCalculator):
 
   def test(self) -> None:
     """Run self-tests."""
-    check_eq(self(Rules.make(late_surrender=False, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY),
-             0.006154300078850155)
+    # Required data may not yet have been downloaded.
 
 
 # %%
@@ -5233,17 +5231,20 @@ def get_cut_card_analysis(rules: Rules, strategy: Strategy = Strategy()) -> CutC
   """Run shoe simulations to compute reward as function of cut-card position."""
   num_decks = int(rules.num_decks)
   path = pathlib.Path(f'data/cut_card_analysis_for_{num_decks}_decks.pickle')
-  cut_card_analysis_result: CutCardAnalysisResult
 
-  if not RECOMPUTE_CUT_CARD_ANALYSIS and path.is_file():
-    print('Loading precomputed result.')
-    cut_card_analysis_result = pickle.loads(path.read_bytes())
-
-  else:
+  if RECOMPUTE_CUT_CARD_ANALYSIS:
     num_shoes = {0: 10_000_000, 1: 100_000_000, 2: 10_000_000_000, 3: 50_000_000_000}[EFFORT]
     cut_card_analysis_result = run_simulations_all_cut_cards(rules, strategy, num_shoes)
     if EFFORT >= 2:
       path.write_bytes(pickle.dumps(cut_card_analysis_result))
+
+  elif path.is_file():
+    print('Loading precomputed result.')
+    cut_card_analysis_result = pickle.loads(path.read_bytes())
+
+  else:
+    print('Skipping cut-card analysis.')
+    cut_card_analysis_result = CutCardAnalysisResult(rules, strategy, 0, {})
 
   return cut_card_analysis_result
 
@@ -5311,7 +5312,9 @@ def compute_and_plot_cut_card_analysis_result(num_decks: int) -> None:
       cut_card_analysis_results[num_decks] = get_cut_card_analysis(Rules.make(num_decks=num_decks))
 
   if num_decks in cut_card_analysis_results:
-    plot_cut_card_analysis_result(cut_card_analysis_results[num_decks])
+    result = cut_card_analysis_results[num_decks]
+    if result.house_edge_from_cut_card:
+      plot_cut_card_analysis_result(result)
 
 
 def compute_and_plot_cut_card_analysis_results() -> None:
@@ -5427,7 +5430,7 @@ if EFFORT >= 1:
 #   The largest differences are in the rule variation `hit_split_aces=True`.
 #   Computing a house edge using the Bjstrat hand calculator does match our results.
 #
-# - Our 6 levels of player strategy `Attention`
+# - Our 6 levels of `Attention` in player strategy
 #   [progressively increase the individual hand rewards](#analyze-hand-action-wrt-attention) and
 #   [progressively decrease the house edge](#analyze-edge-wrt-attention).
 
@@ -5531,7 +5534,7 @@ show_added_global_variables_sorted_by_type()
 
 # %%
 hh.show_notebook_cell_top_times()
-# EFFORT=0: ~165 s  (~1400 s on Colab) (bottleneck is prob. computations)
+# EFFORT=0: ~165 s (bottleneck is prob. computations) (~2300 s on Colab)
 # EFFORT=1: ~2_450 s (+ ~160 s cut_card_analysis_results) (time-out in Colab)
 # EFFORT=2: ~25_000 s (~8 hrs) (+ ~11_000 s cut_card_analysis_results)
 # EFFORT=3: ~40 hrs or more.
@@ -5547,24 +5550,26 @@ def show_kernel_memory_resident_set_size() -> None:
 show_kernel_memory_resident_set_size()
 
 
-# %%
-def run_spell_check(basename: str, commit_new_words: bool = False) -> None:
+# %% tags=[]
+def run_spell_check(filename: str, commit_new_words: bool = False) -> None:
   """Look for misspelled words in notebook."""
-  # -Fxvif: fixed_string, match_whole_line, invert_match, case_insensitive, patterns_from_file.
-  find = (f'cat {basename}.py | sed "s/\'/ /g" | spell | sort -u | grep -Fxvif {basename}.spell')
-  if commit_new_words:
-    hh.run(f'{find} >v.spell; cat v.spell >>{basename}.spell && rm v.spell')
-  else:
-    hh.run(f'{find} || true')
+  path = pathlib.Path(filename)
+  if path.is_file():
+    # -Fxvif: fixed_string, match_whole_line, invert_match, case_insensitive, patterns_from_file.
+    find = (f'cat {path} | sed "s/\'/ /g" | spell | sort -u | grep -Fxvif {path.stem}.spell')
+    if commit_new_words:
+      hh.run(f'{find} >v.spell; cat v.spell >>{path.stem}.spell && rm v.spell')
+    else:
+      hh.run(f'{find} || true')
 
-run_spell_check('blackjack')
+run_spell_check('blackjack.py')
 
 # %% tags=[]
 if 0:
   run_spell_check('blackjack', commit_new_words=True)
 
 
-# %%
+# %% tags=[]
 def run_lint(filename: str) -> None:
   """Run checks on *.py notebook code (saved using jupytext or from menu)."""
   if not pathlib.Path(filename).is_file():
