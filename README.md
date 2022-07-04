@@ -1,10 +1,11 @@
 # bjnb: Blackjack Notebook
 
 [Hugues Hoppe](https://hhoppe.com/)
-&nbsp;&nbsp;&mdash;&nbsp;&nbsp;
-[**[Open in Colab]**](
-  https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb) &nbsp;
-[**[GitHub source]**](https://github.com/hhoppe/blackjack)
+&nbsp;&nbsp;&mdash;&nbsp;
+&nbsp; [**[Open in Colab]**](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb)
+&nbsp; [**[Open in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
+&nbsp; [**[Open in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
+&nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack)
 
 Blackjack &mdash; *"the most widely played casino banking game in the world"*.
 
