@@ -2470,7 +2470,8 @@ def simulate_many_shoes(rules: Rules, strategy: Strategy, min_num_player_cards: 
 # %%
 def get_num_hands() -> int:
   """Return the desired number of simulated hands based on `EFFORT` setting."""
-  return {0: 10_000_000, 1: 1_000_000_000, 2: 10_000_000_000, 3: 50_000_000_000}[EFFORT]
+  effort0_num_hands = 10_000_000 if multiprocessing_is_available() else 2_000_000
+  return {0: effort0_num_hands, 1: 1_000_000_000, 2: 10_000_000_000, 3: 50_000_000_000}[EFFORT]
 
 
 # %%
@@ -2824,6 +2825,10 @@ class HandCalculator:
     """Return True if the hand calculator is available."""
     return self(((9, 9), 1), Action.STAND, Rules.make(num_decks=1)) is not None
 
+  def is_downloaded(self, rules: Rules) -> bool:
+    """Return True if all the hand rewards for `rules` are downloaded locally."""
+    return bool(self.read_downloaded(normalize_rules_for_probabilistic_analysis(rules)))
+
   def downloaded_path(self, rules: Rules) -> pathlib.Path:
     """Return a path to the dictionary of downloaded hand calculator rewards for `rules`."""
     return pathlib.Path(f'data/{self.name}_hand_calc_{rules}.pickle')
@@ -3152,7 +3157,8 @@ def analyze_hand(hand: Hand, rules: Rules, *,
   default_actions = tuple(action for action in Action
                           if not (rules.obo and action is Action.SURRENDER))
   actions = tuple(actions) or default_actions
-  num_hands = {0: 10_000_000, 1: 100_000_000, 2: 1_000_000_000, 3: 10_000_000_000}[EFFORT]
+  effort0_num_hands = 10_000_000 if multiprocessing_is_available() else 2_000_000
+  num_hands = {0: effort0_num_hands, 1: 100_000_000, 2: 1_000_000_000, 3: 10_000_000_000}[EFFORT]
   if not prefix:
     print(f'# hand={hand}  EFFORT={EFFORT}')
 
@@ -3233,6 +3239,10 @@ if 0:
 def look_for_hands_with_differences_in_calculated_optimal_actions(
     rules: Rules, *, expected_differences: Optional[List[Hand]] = None) -> None:
   """Look for differences in optimal actions across hand calculators on all initial hands."""
+  for name, hand_calc in HAND_CALCULATORS.items():
+    if not hand_calc.is_downloaded(rules):
+      print(f'(Skipping {name} which is not downloaded.)')
+
   cd_hand_calc = ProbHandCalculator()
   differences: List[Hand] = []
   for card1, card2 in generate_all_initial_cards():
@@ -3246,6 +3256,8 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
       all_reward_actions = {}
       found_unexpected = False
       for name, hand_calc in HAND_CALCULATORS.items():
+        if not hand_calc.is_downloaded(rules):
+          continue
         all_reward_actions[name] = reward_actions = sorted(
             ((hh.assert_not_none(hand_calc(hand, action, rules)), action) for action in Action),
             reverse=True)
