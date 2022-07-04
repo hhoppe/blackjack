@@ -209,7 +209,8 @@ def numba_jit(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
 # %%
 def multiprocessing_is_available() -> bool:
   """Return True if multiprocessing may enable a performance improvement."""
-  return multiprocessing.get_start_method() == 'fork' and multiprocessing.cpu_count() > 2
+  return (multiprocessing.get_start_method() == 'fork' and multiprocessing.cpu_count() > 2 and
+          os.environ.get('CPU_LIMIT') != '1.0')
 
 
 # %%
