@@ -5546,7 +5546,7 @@ show_added_global_variables_sorted_by_type()
 
 # %%
 hh.show_notebook_cell_top_times()
-# EFFORT=0: ~165 s (bottleneck is prob. computations) (~2300 s on Colab)
+# EFFORT=0: ~165 s (bottleneck is prob. computations) (~560 s on Colab with 20% num_hands)
 # EFFORT=1: ~2_450 s (+ ~160 s cut_card_analysis_results) (time-out in Colab)
 # EFFORT=2: ~25_000 s (~8 hrs) (+ ~11_000 s cut_card_analysis_results)
 # EFFORT=3: ~40 hrs or more.
