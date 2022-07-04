@@ -17,10 +17,11 @@
 # # bjnb: Blackjack Notebook
 #
 # [Hugues Hoppe](https://hhoppe.com/)
-# &nbsp;&nbsp;&mdash;&nbsp;&nbsp;
-# [**[Open in Colab]**](
-#   https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb) &nbsp;
-# [**[GitHub source]**](https://github.com/hhoppe/blackjack)
+# &nbsp;&nbsp;&mdash;&nbsp;
+# &nbsp; [**[Open in Colab]**](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb)
+# &nbsp; [**[Open in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
+# &nbsp; [**[Open in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
+# &nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack)
 #
 # Blackjack &mdash; _"the most widely played casino banking game in the world"_.
 
@@ -209,8 +210,9 @@ def numba_jit(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
 # %%
 def multiprocessing_is_available() -> bool:
   """Return True if multiprocessing may enable a performance improvement."""
+  has_cpu_limit = os.environ.get('CPU_LIMIT') == '1.0'  # Kubernetes on mybinder.org
   return (multiprocessing.get_start_method() == 'fork' and multiprocessing.cpu_count() > 2 and
-          os.environ.get('CPU_LIMIT') != '1.0')
+          not has_cpu_limit)
 
 
 # %%
@@ -5547,6 +5549,7 @@ show_added_global_variables_sorted_by_type()
 # %%
 hh.show_notebook_cell_top_times()
 # EFFORT=0: ~165 s (bottleneck is prob. computations) (~560 s on Colab with 20% num_hands)
+#                  (~740 s on Kaggle with 100%) (~480 s on MyBinder with 20%)
 # EFFORT=1: ~2_450 s (+ ~160 s cut_card_analysis_results) (time-out in Colab)
 # EFFORT=2: ~25_000 s (~8 hrs) (+ ~11_000 s cut_card_analysis_results)
 # EFFORT=3: ~40 hrs or more.
