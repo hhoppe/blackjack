@@ -17,8 +17,12 @@
 # # bjnb: Blackjack Notebook
 #
 # [Hugues Hoppe](https://hhoppe.com/)
+# &nbsp;&nbsp;&mdash;&nbsp;&nbsp;
+# [**[Open in Colab]**](
+#   https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb) &nbsp;
+# [**[GitHub source]**](https://github.com/hhoppe/blackjack)
 #
-# Blackjack &mdash; *"the most widely played casino banking game in the world"*.
+# Blackjack &mdash; _"the most widely played casino banking game in the world"_.
 
 # %% [markdown]
 # **Goals**:
@@ -32,7 +36,7 @@
 #      for cut-card effects and precise split-hand rewards.
 #
 # - Support for many [rule variations](#Define-Rules)
-#   (12 parameters including #decks, dealer hit soft17, cut-card, ...)
+#   \(12 parameters including #decks, dealer hit soft17, cut-card, ...)
 #
 # - Optimal [action tables](#Tables-for-basic-strategy) for
 #   [basic strategy](#Define-Action-and-Strategy)
@@ -70,7 +74,9 @@
 # **Running this Jupyter notebook**:
 # - The notebook requires Python 3.7 or later.
 # - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU. <br/>
-#   (The notebook can also be executed on a [Colab server](https://colab.research.google.com/),
+#   (The notebook can also be executed on a
+#   [Colab server](
+#    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
 #   but it runs ~20x slower due to the older, shared processor.)
 # - Within a Linux environment (e.g.,
 #   [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install)):
@@ -559,13 +565,16 @@ WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 # We express the expected reward for an action at a given graph node
 # as a weighted summation of expected rewards at other graph nodes.
 # For example, the reward for a `HIT` action is:
+#
 # $$\text{reward}(\text{state}, \text{HIT}) =
 #   \sum_{(\text{prob}, \text{card}) \in \text{ProbCard}(\text{state})}
 #     \text{prob}\cdot \text{reward}\big(\text{combine}(\text{state}, \text{card})\big),$$
+#
 # where $\text{combine}(\text{state}, \text{card})$ returns a new state with the added card.
 # The other actions have similar recurrence formulas based on the rewards of other states.
 #
 # The reward for a hand $\text{state}$ is the reward for the optimal action at that state:
+#
 # $$\text{reward}(\text{state}) = \max_{\text{action}}
 #     \text{reward}\big(\text{state}, \text{action}\big).$$
 #
@@ -592,6 +601,7 @@ WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 # [*basic strategy*](https://en.wikipedia.org/wiki/Blackjack#Basic_strategy).
 #
 # We generalize the prior formulas to include attention:
+#
 # $$\text{reward}(\text{state}, \text{attention}, \text{HIT}) =
 #   \sum_{(\text{prob}, \text{card}) \in \text{ProbCard}(\text{state})}
 #     \text{prob}\cdot \text{reward}\big(
@@ -603,6 +613,7 @@ WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 #       \text{reward}\big(\text{Project}_{\text{attention}}(\text{state}),
 #         \text{attention}, \text{action}\big)
 #     \Big),$$
+#
 # where $\text{state}' = \text{Project}_{\text{attention}}(\text{state})$ maps $\text{state}$
 # onto a canonical $\text{state}'$ which keeps only the attended aspects.
 #
@@ -664,7 +675,7 @@ WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 # **Sources of error in the probabilistic results**:
 #
 # - The current probabilistic analysis ignores any penetration in the shoe,
-#   so it **does not account for a [*cut-card effect*](Effect-of-using-a-cut-card)**.
+#   so it **does not account for a [*cut-card effect*](#Effect-of-using-a-cut-card)**.
 #   This is valid if playing just the first hand of each shoe (i.e. "continuous reshuffling") or
 #   playing any *fixed number* of hands from each shoe.
 #   Hand calculators make this assumption.
@@ -3273,14 +3284,14 @@ if 0:
 
 # %% [markdown]
 # **References**:
-# - https://wizardofodds.com/games/blackjack/calculator/ -- 9D table for CD strategy,
-#   plus 1D offsets for basic strategy and use of cut-card; nice.
+# - https://wizardofodds.com/games/blackjack/calculator/ -- 9D table for CD strategy;
+#   1D offsets for basic strategy and use of cut-card; nice.
 # - https://members.blackjackapprenticeship.com/wp-content/BJA_apps/BJACALC/ -- less precise.
 # - https://blackjackdoc.com/edge-calculator.htm -- results closely match BJA.
 # - [https://www.beatingbonuses.com/houseedge.htm](https://www.beatingbonuses.com/bjstrategy.php?decks2=1&h17=stand&doubleon2=any2cards&das2=on&peek2=on&surrender2=late&charlie2=no&resplits2=4&bj=3to2&opt2=1&btn2=Generate+Strategy)
 #   -- same house edge % as WizardOfOdds including `hit_split_aces=True`.
 # - https://www.blackjackinfo.com/blackjack-basic-strategy-engine/
-#   -- basic strategy table but shows house edge %
+#   -- basic strategy table and shows house edge %.
 # - https://thepogg.com/guides/blackjack/
 #   -- sum of 1D tables; identical to the "Basic Calc" of
 #   [beatingbonuses.com](https://www.beatingbonuses.com/houseedge.htm).
@@ -3824,7 +3835,7 @@ if EFFORT >= 1:
 # %% [markdown]
 # The results are identical to those reported in
 # [WizardOfOdds](https://wizardofodds.com/games/blackjack/strategy/calculator/)
-# (also [here](https://wizardofodds.com/games/blackjack/strategy/1-deck/)),
+# \(also [here](https://wizardofodds.com/games/blackjack/strategy/1-deck/)),
 # as well as
 # [BlackjackInfo](https://www.blackjackinfo.com/blackjack-basic-strategy-engine/?numdecks=1&soft17=h17&dbl=all&das=yes&surr=ls&peek=yes),
 # [BlackjackDoc](https://blackjackdoc.com/blackjack-basic-strategy.htm),
@@ -3886,7 +3897,7 @@ if EFFORT >= 1:
 # %% [markdown]
 # These results are identical to those reported in
 # [WizardOfOdds](https://wizardofodds.com/games/blackjack/strategy/calculator/)
-# (also [here](https://wizardofodds.com/games/blackjack/strategy/1-deck/)),
+# \(also [here](https://wizardofodds.com/games/blackjack/strategy/1-deck/)),
 # [BlackjackInfo](https://www.blackjackinfo.com/blackjack-basic-strategy-engine/?numdecks=1&soft17=s17&dbl=all&das=yes&surr=ls&peek=yes), and
 # [BlackjackReview](https://www.blackjackreview.com/wp/encyclopedia/single-deck/).
 #
@@ -5206,13 +5217,12 @@ if EFFORT >= 1:
 # Additional references:
 # - https://www.blackjackincolor.com/blackjackeffects1.htm
 # - Some [discussion](https://wizardofvegas.com/forum/gambling/blackjack/31457-cut-card-effect/)
-# (and
-# [here](https://wizardofvegas.com/forum/gambling/blackjack/13138-cut-card-effect/))
-# argues that if the subset of cards in front of the cut-card has more tens than average,
-# then the dealt hands involve fewer cards and more hands are played
-# using those cards (relative to the case that the cards have fewer tens than average).
-# Because hands with tens are favorable to the player, this should *reduce* the house edge.
-# It's still unclear why this argument is invalid.
+#   \(and [here](https://wizardofvegas.com/forum/gambling/blackjack/13138-cut-card-effect/))
+#   argues that if the subset of cards in front of the cut-card has more tens than average,
+#   then the dealt hands involve fewer cards and more hands are played
+#   using those cards (relative to the case that the cards have fewer tens than average).
+#   Because hands with tens are favorable to the player, this should *reduce* the house edge.
+#   It's still unclear why this argument is invalid.
 
 # %% tags=[]
 cut_card_analysis_results: Dict[int, CutCardAnalysisResult] = {}
