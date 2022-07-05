@@ -14,7 +14,7 @@
 # ---
 
 # %% [markdown]
-# # bjnb: Blackjack Notebook
+# # Blackjack Notebook (bjnb)
 #
 # [Hugues Hoppe](https://hhoppe.com/)
 # &nbsp;&nbsp;&mdash;&nbsp;
