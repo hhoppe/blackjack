@@ -19,8 +19,9 @@
 # [Hugues Hoppe](https://hhoppe.com/)
 # &nbsp;&nbsp;&mdash;&nbsp;
 # &nbsp; [**[Open in Colab]**](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb)
-# &nbsp; [**[Open in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
-# &nbsp; [**[Open in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
+# &nbsp; [**[in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
+# &nbsp; [**[in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
+# &nbsp; [**[in DeepNote]**](https://deepnote.com/launch?url=https%3A%2F%2Fgithub.com%2Fhhoppe%2Fblackjack%2Fblob%2Fmain%2Fblackjack.ipynb)
 # &nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack)
 #
 # Blackjack &mdash; _"the most widely played casino banking game in the world"_.
@@ -224,6 +225,15 @@ def temporary_effort(effort: int) -> Iterator[None]:
   with hh.temporary_assignment(globals(), 'EFFORT', effort):
     yield
   hh.clear_lru_caches(globals())
+
+
+# %%
+def show_kernel_memory_resident_set_size() -> None:
+  """Print the memory size of the IPython kernel."""
+  command = f'ps -p {os.getpid()} -o rss --no-headers'
+  output = subprocess.run(command, shell=True, check=True, capture_output=True, text=True).stdout
+  rss_kb = int(output)
+  print(f'{rss_kb*1024/1e9:.1f} GiB')
 
 
 # %%
@@ -2789,9 +2799,9 @@ if 0:
 # %% [markdown]
 # **References**:
 # - https://wizardofodds.com/games/blackjack/hand-calculator/
-#   -- 6-digit accuracy, but seems incorrect on SPLIT actions.
+#   &mdash; 6-digit accuracy, but seems incorrect on SPLIT actions.
 # - http://www.bjstrat.net/cgi-bin/cdca.cgi
-#   -- 4-digit accuracy, with good SPLIT computations.
+#   &mdash; 4-digit accuracy, with good SPLIT computations.
 
 # %% [markdown]
 # We analyze the rewards for actions on specific hands (using a composition-dependent strategy)
@@ -3297,21 +3307,21 @@ if 0:
 
 # %% [markdown]
 # **References**:
-# - https://wizardofodds.com/games/blackjack/calculator/ -- 9D table for CD strategy;
+# - https://wizardofodds.com/games/blackjack/calculator/ &mdash; 9D table for CD strategy;
 #   1D offsets for basic strategy and use of cut-card; nice.
-# - https://members.blackjackapprenticeship.com/wp-content/BJA_apps/BJACALC/ -- less precise.
-# - https://blackjackdoc.com/edge-calculator.htm -- results closely match BJA.
+# - https://members.blackjackapprenticeship.com/wp-content/BJA_apps/BJACALC/ &mdash; less precise.
+# - https://blackjackdoc.com/edge-calculator.htm &mdash; results closely match BJA.
 # - [https://www.beatingbonuses.com/houseedge.htm](https://www.beatingbonuses.com/bjstrategy.php?decks2=1&h17=stand&doubleon2=any2cards&das2=on&peek2=on&surrender2=late&charlie2=no&resplits2=4&bj=3to2&opt2=1&btn2=Generate+Strategy)
-#   -- same house edge % as WizardOfOdds including `hit_split_aces=True`.
+#   &mdash; same house edge % as WizardOfOdds including `hit_split_aces=True`.
 # - https://www.blackjackinfo.com/blackjack-basic-strategy-engine/
-#   -- basic strategy table and shows house edge %.
+#   &mdash; basic strategy table and shows house edge %.
 # - https://thepogg.com/guides/blackjack/
-#   -- sum of 1D tables; identical to the "Basic Calc" of
+#   &mdash; sum of 1D tables; identical to the "Basic Calc" of
 #   [beatingbonuses.com](https://www.beatingbonuses.com/houseedge.htm).
 # - https://www.blackjackgala.com/blackjack-calculator.html
-#   -- successive branched sums; overly simple.
+#   &mdash; successive branched sums; overly simple.
 # - https://easymoneyblackjack.com/blackjack-house-edge-calculator/
-#   -- successive branched sums; overly simple.
+#   &mdash; successive branched sums; overly simple.
 
 # %%
 class HouseEdgeCalculator:
@@ -3743,8 +3753,8 @@ if 0:
 # %% [markdown]
 # - Dealer hits on soft 17
 #
-# When the dealer has a soft total of 17, the usual rule is to HIT (rather than STAND)
-# -- this is unfavorable to the player.
+# When the dealer has a soft total of 17,
+# the usual rule is to HIT (rather than STAND) &mdash; this is unfavorable to the player.
 #
 # The basic strategy varies with the number of decks in the shoe,
 # because the probability of drawing 10s or Aces changes slightly after the 3 dealt cards.
@@ -3872,7 +3882,7 @@ analyze_hand(((9, 9), 1), Rules.make(num_decks=1))
 
 # We find SPLIT to be optimal when using basic strategy.  The rewards computed using the
 # initial-dependent probabilistic analysis (id) and Monte Carlo simulation (sim) are close to each
-# other and also to Bjstrat's hand calculator -- all showing SPLIT as optimal (by a small
+# other and also to Bjstrat's hand calculator &mdash; all showing SPLIT as optimal (by a small
 # margin).
 
 # We exactly match the Bjstrat SPLIT result.
@@ -4140,15 +4150,16 @@ if EFFORT >= 2:
   with temporary_effort(3):  # ~300 s  (EFFORT=2 ~42 s)
     find_significant_reward_differences_across_hand_calculators(Rules.make(num_decks=1))
 
-# Great -- for all actions except SPLIT, we exactly reproduce the rewards of Wizard with 6 digits
-# of precision, and we reproduce the rewards of Bjstrat (with their 4 digits of precision)!
+# Great &mdash; for all actions except SPLIT, we exactly reproduce the rewards of Wizard
+# with 6 digits of precision,
+# and we reproduce the rewards of Bjstrat (with their 4 digits of precision)!
 
 # For the SPLIT actions, there are differences.
 # Setting our strategy to COMPOSITION_DEPENDENT_STRATEGY (Attention.HAND_AND_NUM_PRIOR_SPLITS),
-# our results are close to the 'bjstrat' results --- with only 8 reward values having differences
-# exceeding 0.0003.  And for all those 8 numbers, at EFFORT=3, our rewards are consistently a
-# little higher.  The differences are likely due to details in state-tracking between the
-# multiple split hands.
+# our results are close to the 'bjstrat' results &mdash;- with only 8 reward values
+# having differences exceeding 0.0003.
+# And for all those 8 numbers, at EFFORT=3, our rewards are consistently a little higher.
+# The differences are likely due to details in state-tracking between the multiple split hands.
 
 # The Wizard SPLIT results are significantly different and moreover they differ from our
 # Monte Carlo simulation results.  (See for example `test_some_split_hands1()` and
@@ -5461,10 +5472,10 @@ if EFFORT >= 1:
 # - https://www.onlinegambling.com/blackjack/odds/
 # - https://www.onlineunitedstatescasinos.com/las-vegas/blackjack/
 # - https://en.wikipedia.org/wiki/Gambling_mathematics
-# - https://www.gamingtheodds.com/blackjack/house-edge/ -- looks like truncated results of
-#   WizardOfOdds assuming no late surrender.
+# - https://www.gamingtheodds.com/blackjack/house-edge/
+#   &mdash; looks like truncated results of WizardOfOdds assuming no late surrender.
 # - https://github.com/johntelforduk/blackjack
-#   -- Python simulator to evaluate house edge for various strategies.
+#   &mdash; Python simulator to evaluate house edge for various strategies.
 # - [First reddit post](
 #  https://www.reddit.com/r/blackjack/comments/t9ygkm/python_notebook_to_analyze_blackjack_optimal/)
 #
@@ -5474,7 +5485,7 @@ if EFFORT >= 1:
 #  [House edge calculators](#House-edge-calculators).)
 
 # %% [markdown]
-# # End
+# # Epilog
 
 # %%
 if 0:  # Run a single Rules rather than the full notebook.
@@ -5548,20 +5559,18 @@ show_added_global_variables_sorted_by_type()
 
 # %%
 hh.show_notebook_cell_top_times()
-# EFFORT=0: ~165 s (bottleneck is prob. computations) (~560 s on Colab with 20% num_hands)
-#                  (~740 s on Kaggle with 100%) (~480 s on MyBinder with 20%)
-# EFFORT=1: ~2_450 s (+ ~160 s cut_card_analysis_results) (time-out in Colab)
+# EFFORT=0: ~165 s (bottleneck is prob. computations)
+#      Colab: ~560 s with 20% num_hands; max 12 GB mem; table of contents.
+#     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
+#   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
+#   DeepNote: ~550 s with 20% num_hands; max 5 GB mem; table of contents; copies GitHub; must login.
+# EFFORT=1: ~2_450 s (+ ~160 s cut_card_analysis_results)
+#      Colab: timed out.
+#     Kaggle: ~24_000 s (11.6 GiB).
 # EFFORT=2: ~25_000 s (~8 hrs) (+ ~11_000 s cut_card_analysis_results)
 # EFFORT=3: ~40 hrs or more.
 
 # %%
-def show_kernel_memory_resident_set_size() -> None:
-  """Print the memory size of the IPython kernel."""
-  command = f'ps -p {os.getpid()} -o rss --no-headers'
-  output = subprocess.run(command, shell=True, check=True, capture_output=True, text=True).stdout
-  rss_kb = int(output)
-  print(f'{rss_kb*1024/1e9:.1f} GiB')
-
 show_kernel_memory_resident_set_size()
 
 
@@ -5581,7 +5590,7 @@ run_spell_check('blackjack.py')
 
 # %% tags=[]
 if 0:
-  run_spell_check('blackjack', commit_new_words=True)
+  run_spell_check('blackjack.py', commit_new_words=True)
 
 
 # %% tags=[]
@@ -5606,8 +5615,17 @@ def run_lint(filename: str) -> None:
 run_lint('blackjack.py')
 
 # %% [markdown]
+# From Windows Emacs, `compile` command:
+# ```shell
+# c:/windows/sysnative/wsl -e bash -lc 'f=blackjack.py; false && env python3 $f; env mypy --strict --ignore-missing-imports "$f"; autopep8 -aaa --max-line-length 100 --indent-size 2 --ignore E265,E121,E125,E128,E129,E131,E226,E302,E305,E703 --diff "$f"; pylint --indent-string="  " --disable=C0103,C0302,C0415,R0902,R0903,R0913,R0914,W0640,W0125,C0413,W1514,C0301,C0114,W0301 "$f"; false && python3 -m doctest -v "$f" | perl -ne "print if /had no tests/../passed all/" | head -n -1; false && env pytest ..; echo All ran.'
+# ```
+
+# %% [markdown]
 # <!-- For Emacs:
 # Local Variables: *
 # fill-column: 100 *
 # End: *
 # -->
+
+# %% [markdown]
+# # End
