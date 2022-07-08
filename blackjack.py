@@ -5349,7 +5349,7 @@ def compute_and_plot_cut_card_analysis_results() -> None:
 
 
 # %% [markdown]
-# <a name="cut-card-graph"></a>The graphs below show how the house edge varies depending on
+# <a name="cut-card-graph" id="cut-card-graph"></a>The graphs below show how the house edge varies depending on
 # the position of the cut-card in the shoe.
 #
 # We first consider a **single deck**, where the effect is most pronounced.
