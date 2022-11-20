@@ -3396,9 +3396,9 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
         return table
 
     table = np.full((6, 2, 2, 3, 3, 2, 2, 2, 2), math.inf)
-    pattern = re.compile(r'^edgeTable' + r'\[(\d)\]' * 9 + r'=([-0-9.eE]+);$')
+    regex = re.compile(r'^edgeTable' + r'\[(\d)\]' * 9 + r'=([-0-9.eE]+);$')
     for line in text.splitlines():
-      match = pattern.match(line)
+      match = regex.match(line)
       if match:
         table[tuple(map(int, match.groups()[:9]))] = match.groups()[-1]
     assert np.all(table != math.inf)
