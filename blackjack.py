@@ -2494,7 +2494,7 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
   """Return `(reward_average, played_hands, reward_sdv)` computed over many random hands."""
   assert start_shoe_index >= 0 and num_hands > 0 and hands_per_shoe >= 0
   assert strategy.attention in (Attention.TOTAL_OF_CARDS, Attention.INITIAL_CARDS_AND_TOTAL)
-  global _global_create_shoes  # pylint: disable=global-statement
+  global _global_create_shoes  # pylint: disable=global-statement, disable=invalid-name
   _global_create_shoes = create_shoes
   shoe_size = create_shoes(1, 0).shape[1]
   # If cut_card == 0, we should reshuffle the shoe after each hand.  For efficiency, we instead
@@ -2517,7 +2517,7 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
   if parallel is None:
     sufficient_work = estimated_work >= 2 * min_work_per_task
     parallel = multiprocessing_is_available() and sufficient_work
-  if parallel and not multiprocessing_is_available:
+  if parallel and not multiprocessing_is_available():
     warnings.warn('Multiprocessing simulation is requested but unavailable.')
     parallel = False
 
