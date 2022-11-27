@@ -1292,7 +1292,7 @@ def reward_for_split(state: State, rules: Rules, strategy: Strategy) -> float:
   num_split_loops = 10
 
   for _ in range(num_split_loops):
-    new_split_states: dict[Any, float] = collections.defaultdict(lambda: 0.0)
+    new_split_states: collections.defaultdict[Any, float] = collections.defaultdict(lambda: 0.0)
     for (split_cards, num_complete, num_incomplete), prob1 in split_states.items():
       current_split_num_hands = num_complete + num_incomplete
       split_allowed = current_split_num_hands < rules.split_to_num_hands and resplits_allowed
