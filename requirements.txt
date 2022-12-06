@@ -1,7 +1,0 @@
-hhoppe-tools
-matplotlib
-numba>=0.55.1
-tqdm
-mypy
-autopep8
-pylint
