@@ -74,7 +74,7 @@
 
 # %% [markdown]
 # **Running this Jupyter notebook**:
-# - The notebook requires Python 3.7 or later.
+# - The notebook requires Python 3.8 or later.
 # - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU. <br/>
 #   (The notebook can also be [executed on a Colab server](
 #    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
@@ -108,7 +108,7 @@
 
 # %%
 # https://github.com/hhoppe/hhoppe-tools/blob/main/hhoppe_tools/__init__.py
-# !pip install -q hhoppe-tools matplotlib 'numba>=0.55.1' tqdm
+# !pip install -q hhoppe-tools matplotlib more-itertools 'numba>=0.55.1' tqdm
 
 # %%
 from __future__ import annotations
@@ -131,7 +131,7 @@ import sys
 import textwrap
 import time
 import typing
-from typing import Any, FrozenSet, Tuple, Union
+from typing import Any, FrozenSet, Literal, Tuple, Union
 import unittest.mock
 import urllib.parse
 import urllib.request
@@ -140,12 +140,13 @@ import warnings
 import hhoppe_tools as hh
 import IPython.display
 import matplotlib.pyplot as plt
+import more_itertools
 import numba
 import numpy as np
 import tqdm
 
 # %%
-EFFORT = 0  # (In Python 3.8: Literal[0, 1, 2, 3])
+EFFORT: Literal[0, 1, 2, 3] = 0
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at low precision (~3 minutes).
 - 1: Most experiments, at normal precision (~40 minutes).
@@ -1270,12 +1271,12 @@ def reward_for_split(state: State, rules: Rules, strategy: Strategy) -> float:
   def add_split_card(split_cards: Cards, card: Card) -> Cards:
     """Return new split_cards merging the prior `split_cards` and the new `card`."""
     if card == card1:
-      return (card, *split_cards)
+      return card, *split_cards
     num_card1 = split_cards.count(card1)
     if 0:
       assert num_card1 > 0
       assert all((card == card1) == (i < num_card1) for i, card in enumerate(split_cards))
-    return (*split_cards[:num_card1], *sorted((*split_cards[num_card1:], card)))
+    return *split_cards[:num_card1], *sorted((*split_cards[num_card1:], card))
 
   reward = 0.0  # Sum of rewards for completed split hands.
 
@@ -2158,7 +2159,7 @@ def test_create_tables(rules: Rules, strategy: Strategy) -> None:
   """Check that all hands have possible actions, and that all possible actions have hands."""
   action_table = create_tables(rules, strategy, quiet=False)[1]
   for unpermuted_cards in generate_all_hands(rules):
-    for cards in hh.unique_permutations(unpermuted_cards):
+    for cards in more_itertools.distinct_permutations(unpermuted_cards):
       player_total, player_soft = combine_cards(cards)
       card1, card2, dealer1, have_split, is_first_action = *cards[:2], 10, False, False
       index: tuple[int, ...] = (card1 - 1, card2 - 1, dealer1 - 1, int(have_split),
@@ -2231,7 +2232,7 @@ def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: in
 @numba_jit('Tuple((float64, int64))(int64, int64[::1], int64, boolean[:, ::1],'
            ' uint8[:, :, :, :, :, :, ::1], int64, float64, boolean, boolean, float64, boolean)',
            inline=('always' if EFFORT >= 2 else 'never'))
-def simulate_hand(  # pylint: disable=too-many-statements
+def simulate_hand(
     shoe_index: int, shoe: _NDArray, card_index: int, split_table: _NDArray,
     action_table: _NDArray, min_num_player_cards: int, rules_blackjack_payout: float,
     rules_hit_soft17: bool, rules_obo: bool, rules_split_to_num_hands: float,
@@ -2622,8 +2623,8 @@ def experiment_num_shoes_per_seed(rules: Rules, num_hands: int, num_shoes_per_se
   with unittest.mock.patch(f'{__name__}.get_num_shoes_per_seed', new_func):
     elapsed = hh.get_time(lambda: monte_carlo_house_edge(rules, Strategy(), num_hands, quiet=True),
                           max_time=5.0)
-    print(f'# num_decks={rules.num_decks}  num_hands={num_hands:<13_}'
-          f' num_shoes_per_seed={num_shoes_per_seed:<6_} {elapsed:.03f} s')
+    print(f'# num_decks={rules.num_decks}  {num_hands=:<13_}'
+          f' {num_shoes_per_seed=:<6_} {elapsed:.03f} s')
 
 def experiment_fastest_num_shoes_per_seed() -> None:
   """Run experiments to find fast settings for `get_num_shoes_per_seed`."""
@@ -3172,7 +3173,7 @@ def analyze_hand(hand: Hand, rules: Rules, *,
   effort0_num_hands = 10_000_000 if multiprocessing_is_available() else 2_000_000
   num_hands = {0: effort0_num_hands, 1: 100_000_000, 2: 1_000_000_000, 3: 10_000_000_000}[EFFORT]
   if not prefix:
-    print(f'# hand={hand}  EFFORT={EFFORT}')
+    print(f'# {hand=}  {EFFORT=}')
 
   if len(actions) > 1:
     bs_best_action = get_best_action(state, rules, BASIC_STRATEGY)
@@ -3283,7 +3284,7 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
       if found_unexpected:
         if differences:
           print()
-        print(f'# hand={hand}  EFFORT={EFFORT}')
+        print(f'# {hand=}  {EFFORT=}')
         text = ' '.join(f'{action.name}:{reward: .6f}' for reward, action in cd_reward_actions
                         if reward != DISALLOWED)
         print(f'#  {"cd":7}: {text}'.rstrip())
@@ -3398,8 +3399,7 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
     table = np.full((6, 2, 2, 3, 3, 2, 2, 2, 2), math.inf)
     regex = re.compile(r'^edgeTable' + r'\[(\d)\]' * 9 + r'=([-0-9.eE]+);$')
     for line in text.splitlines():
-      match = regex.match(line)
-      if match:
+      if match := regex.match(line):
         table[tuple(map(int, match.groups()[:9]))] = match.groups()[-1]
     assert np.all(table != math.inf)
     return table
@@ -3619,7 +3619,7 @@ for _edge_calc in EDGE_CALCULATORS.values():
 # %%
 def configuration_text(rules: Rules, strategy: Strategy, verbose: bool = False) -> str:
   """Return a multiline summary of rules and strategy."""
-  text = (f'# {rules!r} {strategy}' if verbose else f'# {rules} {strategy}') + f' EFFORT={EFFORT}:'
+  text = (f'# {rules!r} {strategy}' if verbose else f'# {rules} {strategy}') + f' {EFFORT=}:'
   return '\n'.join(textwrap.wrap(text, 100, subsequent_indent='#   '))
 
 
@@ -3673,7 +3673,7 @@ def report_edge(rules: Rules, strategy: Strategy = Strategy(), *,
 # %%
 def analyze_number_of_decks(rules: Rules, strategy: Strategy = Strategy()) -> None:
   """Tabulate the house edge as a function of the number of decks."""
-  print(f'# {rules} EFFORT={EFFORT}')
+  print(f'# {rules} {EFFORT=}')
   for num_decks in [1, 2, 4, 6, 8, 20, math.inf]:
     cut_card = 0 if rules.cut_card == 0 else default_cut_card(num_decks)
     modified_rules = dataclasses.replace(rules, num_decks=num_decks, cut_card=cut_card)
@@ -4018,7 +4018,7 @@ def analyze_differences_using_composition_dependent_strategy(
     if verbose:
       if index:
         print()
-      print(f'# For num_decks={num_decks}:')
+      print(f'# For {num_decks=}:')
       print('#   card1  card2  dealer_up  basic_strategy  composition_dependent')
     differences = []
 
@@ -4142,7 +4142,7 @@ def find_significant_reward_differences_across_hand_calculators(rules: Rules) ->
           print(f'# For {hand!s:<14} {action.name:<9}: cd={cd_reward: .6f}'
                 f' {name:>7}={reward: .6f}  diff={difference: .6f}')
         num_differences += 1
-  print(f'# Found num_differences={num_differences}')
+  print(f'# Found {num_differences=}')
 
 
 # %%
@@ -4214,7 +4214,7 @@ if 0:
 def analyze_hand_action_wrt_attention(hand: Hand, action: Action, rules: Rules) -> None:
   """Show reward for `action` on `hand` with progressively more expansive attention settings."""
   state = *hand, ()
-  print(f'# Hand={hand!s:<14} EFFORT={EFFORT}:')
+  print(f'# Hand={hand!s:<14} {EFFORT=}:')
   for attention in Attention:
     strategy = Strategy(attention=attention)
     reward = post_peek_reward_for_action(state, rules, strategy, action)
@@ -4270,7 +4270,7 @@ def demonstrate_importance_of_knowing_prior_split_cards(
                       (card1, card1, card1, card3, card3, card3)]:
     state = *hand, split_cards
     reward = reward_for_action(state, rules, strategy, action)
-    print(f'# hand={hand!s:14} split_cards={split_cards!s:25} reward={reward: .6f}')
+    print(f'# {hand=!s:14} {split_cards=!s:25} {reward=: .6f}')
 
 demonstrate_importance_of_knowing_prior_split_cards(((3, 10), 2))
 # We consider the case that the initial hand is a pair (3, 3) and we split the pair (and
@@ -4507,7 +4507,7 @@ analyze_hand(((1, 10), 1), Rules.make(num_decks=1, obo=False))
 # %%
 def analyze_edge_wrt_attention(rules: Rules) -> None:
   """Compare computed house edge values for different attention settings."""
-  print(f'# For EFFORT={EFFORT}:')
+  print(f'# For {EFFORT=}:')
   for attention in Attention:
     report_edge(rules, Strategy(attention=attention), prefix=f'# {attention.name:<25.25} ')
 
@@ -4737,7 +4737,7 @@ analyze_number_of_decks(Rules.make(hit_soft17=False, cut_card=0))
 # %%
 def analyze_subset_of_player_actions(rules: Rules) -> None:
   """Tabulate the house edge as a function of the subset of player actions."""
-  print(f'# {rules} EFFORT={EFFORT}')
+  print(f'# {rules} {EFFORT=}')
   empty_set: set[Action] = set()
   for omit_actions in [empty_set,
                        {Action.SURRENDER},
@@ -5072,7 +5072,7 @@ if 0:
 def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) -> None:
   """Show that CDS reduces the house edge, particularly for few decks."""
   for solver in ['Probabilistic', 'Simulated', 'Wizard']:
-    print(f'# {solver} house edge % using {rules} and EFFORT={EFFORT}:')
+    print(f'# {solver} house edge % using {rules} and {EFFORT=}:')
     if solver == 'Wizard' and rules.cut_card != 0:
       print('#  (No data for composition-dependent strategy with cut-card.)')
       continue
@@ -5316,7 +5316,7 @@ def plot_cut_card_analysis_result(result: CutCardAnalysisResult, *,
   if legend:
     first_actions_s = '{' + ','.join(action.name
                                      for action in sorted(result.strategy.first_actions)) + '}'
-    legend_text = [repr(result.rules).replace(f', cut_card={cut_card}', ''),
+    legend_text = [repr(result.rules).replace(f', {cut_card=}', ''),
                    re.sub(r'frozenset\(.*?\)', first_actions_s, repr(result.strategy)),
                    f'Simulation(num_shoes={result.num_shoes:_})']
 
@@ -5412,7 +5412,7 @@ compute_and_plot_cut_card_analysis_results()
 # %%
 def compute_house_edge_when_playing_a_fixed_number_of_hands() -> None:
   """Obtain this number to compare with "continuous reshuffle" in the plots."""
-  print(f'# EFFORT={EFFORT}:')
+  print(f'# {EFFORT=}:')
   for num_decks in [1, 2, 4, 6, 8]:
     report_edge(Rules.make(num_decks=num_decks, cut_card=0), prefix=f'# ndecks={num_decks:<3} ')
 
@@ -5574,13 +5574,13 @@ hh.show_notebook_cell_top_times()
 show_kernel_memory_resident_set_size()
 
 
-# %%
+# %% tags=[]
 def run_spell_check(filename: str, commit_new_words: bool = False) -> None:
   """Look for misspelled words in notebook."""
   path = pathlib.Path(filename)
   if path.is_file():
     # -Fxvif: fixed_string, match_whole_line, invert_match, case_insensitive, patterns_from_file.
-    find = (f'cat {path} | sed "s/\'/ /g" | spell | sort -u | grep -Fxvif {path.stem}.spell')
+    find = (f'cat {path} | sed "s/\'/ /g; s/%2F/ /g" | spell | sort -u | grep -Fxvif {path.stem}.spell')
     if commit_new_words:
       hh.run(f'{find} >v.spell; cat v.spell >>{path.stem}.spell && rm v.spell')
     else:
@@ -5588,7 +5588,7 @@ def run_spell_check(filename: str, commit_new_words: bool = False) -> None:
 
 run_spell_check('blackjack.py')
 
-# %%
+# %% tags=[]
 if 0:
   run_spell_check('blackjack.py', commit_new_words=True)
 

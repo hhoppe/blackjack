@@ -12,7 +12,6 @@ exclude = "(^Other|^blackjack_other)"
 ignore_missing_imports = true
 strict = true
 check_untyped_defs = true
-# python_version = "3.7"
 
 [tool.pylint.main]
 # See pylint options using "pylint --generate-toml-config"
@@ -20,14 +19,13 @@ disable = [
   "unspecified-encoding", "fixme", "redefined-builtin", "cell-var-from-loop",
   "using-constant-test", "simplifiable-condition", "import-outside-toplevel", "line-too-long",
   "too-many-lines", "too-few-public-methods", "too-many-arguments", "too-many-locals",
-  "too-many-instance-attributes",
+  "too-many-instance-attributes", "too-many-statements",
   "missing-module-docstring", "unnecessary-semicolon",
 ]
 reports = false
 score = false
 recursive = true
 ignore-paths = [".ipynb_checkpoints", "Other", "blackjack_other.*"]
-# py-version = "3.7"
 
 [tool.pylint.basic]
 good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
