@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.1
+#       jupytext_version: 1.14.4
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -337,7 +337,7 @@ class Rules:
   """Allow the player to SURRENDER, i.e. forfeit 50% of the bet if the dealer does not have
   blackjack (denoted "ls").  Should likely be False if obo=False."""
 
-  double_min_total: int = 0
+  double_min_total: Literal[0, 9, 10] = 0
   """If zero, the player may DOUBLE on any two cards.  Otherwise, the player must have a hard
   total of at least this value (either 9 or 10); value 9 is the "Reno rule"; value 10 is the
   "European rule".  Because the optimal strategy tables do not suggest "DOUBLE" for a hard
@@ -1544,7 +1544,7 @@ def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict
     player_total_base = 13 if player_soft else 5
     shape = 22 - player_total_base, 10  # (5-21, 2-"11") or (13-21, 2-"11")
 
-    table = np.empty(shape, dtype=object)
+    table = np.empty(shape, object)
     for player_total in range(player_total_base, 22):
       for dealer1 in range(1, 11):
         card1, card2 = two_cards_reproducing_total(player_total, player_soft, dealer1)
@@ -1556,7 +1556,7 @@ def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict
     total_type = 'soft' if player_soft else 'hard'
     tables[total_type] = table
 
-  table = np.empty((10, 10), dtype=object)  # (2-"11", 2-"11")
+  table = np.empty((10, 10), object)  # (2-"11", 2-"11")
   strategy_action2 = dataclasses.replace(
       strategy, first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT,
                                                                   Action.SPLIT}))
@@ -2098,7 +2098,7 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
   """Return lookup tables to decide to split hand or what action to take."""
   assert strategy.attention in (Attention.TOTAL_OF_CARDS, Attention.INITIAL_CARDS_AND_TOTAL)
 
-  split_table = np.empty((10, 10), dtype=bool)  # card1=[1..10] dealer1=[1..10].
+  split_table = np.empty((10, 10), bool)  # card1=[1..10] dealer1=[1..10].
   for index in np.ndindex(split_table.shape):
     card1, dealer1 = index[0] + 1, index[1] + 1
     state: State = ((card1, card1), dealer1, ())
@@ -2107,7 +2107,7 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
 
   # Create the 7D array; ~17_950 out of 144_000 entries correspond to possible hands.
   possible_indexes = list(generate_possible_action_table_indices(rules, strategy))
-  action_table = np.full((10, 10, 10, 2, 2, 18, 2), IMPOSSIBLE_ACTION_VALUE, dtype=np.uint8)
+  action_table = np.full((10, 10, 10, 2, 2, 18, 2), IMPOSSIBLE_ACTION_VALUE, np.uint8)
   for index, card1, card2, dealer1, have_split, is_first_action, player_total, player_soft in (
       tqdm_stdout(possible_indexes, desc='table', disable=quiet)):
     card1_was_ace = card1 == 1
@@ -2705,8 +2705,8 @@ def simulate_many_shoes_all_cut_cards(
   rules = normalize_rules_for_probabilistic_analysis(rules)
   split_table, action_table = create_tables(rules, strategy, quiet=True)
   shoe_size = int(rules.num_decks) * 52
-  played_hands = np.zeros(shoe_size, dtype=np.int64)  # [0] is cut_card == 1
-  rewards = np.zeros(shoe_size, dtype=np.float64)
+  played_hands = np.zeros(shoe_size, np.int64)  # [0] is cut_card == 1
+  rewards = np.zeros(shoe_size, np.float64)
   total = stop_shoe_index - start_shoe_index
   num_shoes_per_seed = get_num_shoes_per_seed(rules)
   create_shoes = default_shoes_creator(rules)
