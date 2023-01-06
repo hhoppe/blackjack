@@ -225,9 +225,11 @@ def temporary_effort(effort: int) -> Iterator[None]:
   """Temporarily set the global `EFFORT` to `effort` and clear all memoization caches."""
   assert 0 <= effort <= 3
   hh.clear_lru_caches(globals())
-  with hh.temporary_assignment(globals(), 'EFFORT', effort):
-    yield
-  hh.clear_lru_caches(globals())
+  try:
+    with hh.temporary_assignment(globals(), 'EFFORT', effort):
+      yield
+  finally:
+    hh.clear_lru_caches(globals())
 
 
 # %%
@@ -1624,8 +1626,7 @@ def show_basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) ->
     ax.set_xlabel('Dealer upcard')
     ax.xaxis.set_ticks_position('top')
     ax.xaxis.set_label_position('top')
-    ax.set_yticks(range(table.shape[0]))
-    ax.set_xticks(range(table.shape[1]))
+    ax.set(yticks=range(table.shape[0]), xticks=range(table.shape[1]))
     ax.set_yticklabels(yticklabels)
     ax.set_xticklabels([str(card) for card in range(2, 11)] + ['Ace'])
 
@@ -2495,7 +2496,7 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
   """Return `(reward_average, played_hands, reward_sdv)` computed over many random hands."""
   assert start_shoe_index >= 0 and num_hands > 0 and hands_per_shoe >= 0
   assert strategy.attention in (Attention.TOTAL_OF_CARDS, Attention.INITIAL_CARDS_AND_TOTAL)
-  global _global_create_shoes  # pylint: disable=global-statement, disable=invalid-name
+  global _global_create_shoes  # pylint: disable=global-statement, invalid-name
   _global_create_shoes = create_shoes
   shoe_size = create_shoes(1, 0).shape[1]
   # If cut_card == 0, we should reshuffle the shoe after each hand.  For efficiency, we instead
@@ -5290,9 +5291,8 @@ def plot_cut_card_analysis_result(result: CutCardAnalysisResult, *,
   ax.plot(*zip(*tuple(dots.items())), 'o')
   ax.set_title('House edge as function of cut-card depth'
                f' for {num_decks} deck{"s" if num_decks != 1 else ""}')
-  ax.set_ylabel('House edge %')
-  ax.set_xlabel('Number of shoe cards in front of cut-card')
-  ax.set_xlim(0, num_decks * 52 + 1)
+  ax.set(ylabel='House edge %', xlabel='Number of shoe cards in front of cut-card',
+         xlim=(0, num_decks * 52 + 1))
   # ax.set_ylim(0, ax.get_ylim()[1] + 0.02)
   yptp = ax.get_ylim()[1] - ax.get_ylim()[0]
   ax.set_ylim(0 if num_decks == 1 else ax.get_ylim()[0], ax.get_ylim()[1] + yptp * 0.1)
