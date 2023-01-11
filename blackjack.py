@@ -1,18 +1,3 @@
-# ---
-# jupyter:
-#   jupytext:
-#     formats: ipynb,py:percent
-#     text_representation:
-#       extension: .py
-#       format_name: percent
-#       format_version: '1.3'
-#       jupytext_version: 1.14.4
-#   kernelspec:
-#     display_name: Python 3 (ipykernel)
-#     language: python
-#     name: python3
-# ---
-
 # %% [markdown]
 # # Blackjack Notebook (bjnb)
 #
@@ -138,7 +123,6 @@ import urllib.request
 import warnings
 
 import hhoppe_tools as hh
-import IPython.display
 import matplotlib.pyplot as plt
 import more_itertools
 import numba
@@ -146,16 +130,16 @@ import numpy as np
 import tqdm
 
 # %%
+# %%capture
 EFFORT: Literal[0, 1, 2, 3] = 0
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at low precision (~3 minutes).
 - 1: Most experiments, at normal precision (~40 minutes).
 - 2: All experiments, at high precision (~7 hours).
-- 3: Run at even higher precision (>40 hours), likely on isolated experiments.""";
+- 3: Run at even higher precision (>40 hours), likely on isolated experiments."""
 
-# %%
 RECOMPUTE_CUT_CARD_ANALYSIS = False
-"""If True, perform expensive recomputation of cut-card analysis for results graphs.""";
+"""If True, perform expensive recomputation of cut-card analysis for results graphs."""
 
 # %%
 _F = typing.TypeVar('_F', bound=Callable[..., Any])
@@ -186,9 +170,8 @@ State = Tuple[Cards, Card, Cards]  # (*hand, split_cards)
 - `player_cards = (card1, card2, *sorted_other_player_cards)`: with `card1 <= card2`.
 - `dealer1`: is the dealer upcard.
 - `split_cards = (a, ..., a, *sorted_other_split_cards)`: contains the cards drawn in earlier
-  split hands, where `a` is the card value in the original card pair `(a, a)` that was split.""";
+  split hands, where `a` is the card value in the original card pair `(a, a)` that was split."""
 
-# %%
 CARD_VALUES = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10  # (Ace has value 1 but can count as 11.)
 UNIFORM_CARD_PROB = {card: CARD_VALUES.count(card) / len(CARD_VALUES) for card in CARD_VALUES}
 DEFAULT_NUM_DECKS = 6
@@ -198,6 +181,7 @@ PLUS_MINUS_STANDARD_DEVIATIONS = 2.0  # Results precision bracket; 95% probabili
 WARNING_STANDARD_DEVIATIONS = 3.0  # Warning '*' in results; 99.7% probability within 3 sdv.
 AVERAGE_CARDS_PER_HAND = 5.42  # Determined empirically (for one player against dealer).
 DISALLOWED = -1e10  # Large negative reward indicating an illegal action.
+
 
 # %%
 def numba_jit(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
@@ -242,19 +226,18 @@ def show_kernel_memory_resident_set_size() -> None:
 
 
 # %%
+# %%capture
 tqdm_stdout = functools.partial(
     tqdm.tqdm, leave=False, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
     bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]')
-"""Progress bar customized to show a short ascii text line on stdout.""";
+"""Progress bar customized to show a short ascii text line on stdout."""
 # Notes: tqdm uses '\r' and overwrites with spaces (annoying for copy-paste);
 # jupyterlab does not correctly handle more than two backspaces ('\b');
 # `tqdm.notebook.tqdm()`, which displays HTML, does not work with multiprocessing and does not
 # erase completely; `progressbar2` is poorly documented; `rich` requires ipywidget.
 
 # %%
-# Set Markdown width in Jupyterlab to the value used by Colab; https://stackoverflow.com/a/66278615.
-IPython.display.display(IPython.display.HTML(
-    '<style>.jp-Cell.jp-MarkdownCell { max-width: 1016px!important; }</style>'))
+hh.adjust_jupyterlab_markdown_width()
 
 
 # %% [markdown]
@@ -396,6 +379,7 @@ class Rules:
 
 
 # %%
+# %%capture
 BEST_RULES = Rules.make(num_decks=1, split_to_num_hands=math.inf, resplit_aces=True,
                         hit_split_aces=True, double_split_aces=True, cut_card=0)
 """Combination of rules with the lowest house edge (which is in fact negative)."""
@@ -403,7 +387,7 @@ BEST_RULES = Rules.make(num_decks=1, split_to_num_hands=math.inf, resplit_aces=T
 WORST_RULES = Rules.make(num_decks=math.inf, blackjack_payout=1, hit_soft17=False, obo=False,
                          late_surrender=False, double_min_total=10, double_after_split=False,
                          split_to_num_hands=2)
-"""Combination of rules with the highest house edge.""";
+"""Combination of rules with the highest house edge."""
 
 # (Although the ingenious `Rules.make(num_decks=1, ..., cut_card=5)` has a low house edge,
 # its edge is not as low as `Rules.make(num_decks=math.inf)`.)
@@ -537,6 +521,7 @@ class Strategy:
 
 
 # %%
+# %%capture
 BASIC_STRATEGY = Strategy()  # (attention=Attention.TOTAL_OF_CARDS)
 """The basic (or "total-dependent") strategy considers the player's total rather than the
 individual card values."""
@@ -548,14 +533,15 @@ initial cards."""
 COMPOSITION_DEPENDENT_STRATEGY = Strategy(attention=Attention.HAND_AND_NUM_PRIOR_SPLITS)
 """The composition-dependent strategy considers all the cards in the current hand plus the number
 of prior split hands.  It less powerful than HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS but only
-very slightly.""";
+very slightly."""
 
 # %%
+# %%capture
 BEST_STRATEGY = Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS)
 """Strategy that is most favorable to the player."""
 
 WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
-"""Strategy that is least favorable to the player.""";
+"""Strategy that is least favorable to the player."""
 
 
 # %% [markdown]
@@ -1101,9 +1087,8 @@ def reward_after_dealer_upcard_helper(player_total: int, dealer1: Card, recent_c
       reward = reward_after_dealer_hits(
           player_total, dealer_total, dealer_soft, recent_cards2, num_decks, hit_soft17)
     else:  # Dealer stands.
-      reward = (1.0 if player_total > dealer_total else  # Player wins.
-                0.0 if player_total == dealer_total else  # Push; player gains zero.
-                -1.0)  # Player loses.
+      # Player wins, pushes, or loses.
+      reward = 1.0 if player_total > dealer_total else 0.0 if player_total == dealer_total else -1.0
     sum_reward += prob * reward
     sum_prob += prob
 
@@ -1129,9 +1114,8 @@ def reward_after_dealer_hits(player_total: int, dealer_total: int, dealer_soft: 
       reward = reward_after_dealer_hits(
           player_total, dealer_total2, dealer_soft2, recent_cards2, num_decks, hit_soft17)
     else:  # Dealer stands.
-      reward = (1.0 if player_total > dealer_total2 else  # Player wins.
-                0.0 if player_total == dealer_total2 else  # Push; player gains zero.
-                -1.0)  # Player loses.
+      # Player wins, pushes, or loses.
+      reward = 1.0 if player_total > dealer_total2 else 0 if player_total == dealer_total2 else -1.0
     sum_reward += prob * reward
 
   return sum_reward
@@ -1152,8 +1136,8 @@ def reward_for_initial_hand(state: State, rules: Rules, strategy: Strategy,
 
   if player_bj and action is Action.STAND:
     reward = rules.blackjack_payout
-    return (0.0 * prob_dealer_bj  # Push if both have blackjacks.
-            + reward * (1.0 - prob_dealer_bj))  # Player bj wins.
+    # Push (reward 0.0) if both player and dealer have blackjacks, else player bj wins.
+    return 0.0 * prob_dealer_bj + reward * (1.0 - prob_dealer_bj)
 
   reward = reward_for_action(state, rules, strategy, action)
 
@@ -1664,6 +1648,7 @@ def verify_action_tables(rules: Rules, expected: Mapping[str, str]) -> None:
 # default rules:
 
 # %%
+# %%capture
 EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
     'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
@@ -1748,9 +1733,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
 }
-"""Expected tables for "dealer stands on soft 17" with 6 decks.""";
+"""Expected tables for "dealer stands on soft 17" with 6 decks."""
 
 # %%
+# %%capture
 EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
     'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
@@ -1835,9 +1821,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
 }
-"""Expected tables for "dealer stands on soft 17" with 1 deck.""";
+"""Expected tables for "dealer stands on soft 17" with 1 deck."""
 
 # %%
+# %%capture
 EXPECTED_COMPOSITION_DEPENDENT_DIFFERENCES = {
     6: [(((7, 8), 10), Action.SURRENDER, Action.HIT)],
     4: [(((7, 8), 10), Action.SURRENDER, Action.HIT)],
@@ -1857,7 +1844,7 @@ EXPECTED_COMPOSITION_DEPENDENT_DIFFERENCES = {
 }
 """Expected mapping from the per-shoe number of decks to a list of (card1, card2, dealer1,
 bs_action, cd_action) tuples for which the optimal basic-strategy (bs) action differs from
-the optimal composition-dependent (cd) action.""";
+the optimal composition-dependent (cd) action."""
 
 
 # %% [markdown]
@@ -2278,9 +2265,8 @@ def simulate_hand(
     if dealer_total > 21:
       return 1.0  # Dealer busts and thus player wins.
 
-    return (1.0 if player_total > dealer_total else  # Player wins.
-            0.0 if player_total == dealer_total else  # Push (tie).
-            -1.0)  # Player loses.
+    # Player wins, pushes, or loses.
+    return 1.0 if player_total > dealer_total else 0.0 if player_total == dealer_total else -1.0
 
   def create_split_hands(card1: Card) -> list[Card]:
     """Return series of second cards after iteratively splitting."""
@@ -5574,7 +5560,7 @@ hh.show_notebook_cell_top_times()
 show_kernel_memory_resident_set_size()
 
 
-# %% tags=[]
+# %%
 def run_spell_check(filename: str, commit_new_words: bool = False) -> None:
   """Look for misspelled words in notebook."""
   path = pathlib.Path(filename)
@@ -5588,7 +5574,7 @@ def run_spell_check(filename: str, commit_new_words: bool = False) -> None:
 
 run_spell_check('blackjack.py')
 
-# %% tags=[]
+# %%
 if 0:
   run_spell_check('blackjack.py', commit_new_words=True)
 
