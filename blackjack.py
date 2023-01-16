@@ -5561,25 +5561,6 @@ show_kernel_memory_resident_set_size()
 
 
 # %%
-def run_spell_check(filename: str, commit_new_words: bool = False) -> None:
-  """Look for misspelled words in notebook."""
-  path = pathlib.Path(filename)
-  if path.is_file():
-    # -Fxvif: fixed_string, match_whole_line, invert_match, case_insensitive, patterns_from_file.
-    find = (f'cat {path} | sed "s/\'/ /g; s/%2F/ /g" | spell | sort -u | grep -Fxvif {path.stem}.spell')
-    if commit_new_words:
-      hh.run(f'{find} >v.spell; cat v.spell >>{path.stem}.spell && rm v.spell')
-    else:
-      hh.run(f'{find} || true')
-
-run_spell_check('blackjack.py')
-
-# %%
-if 0:
-  run_spell_check('blackjack.py', commit_new_words=True)
-
-
-# %%
 def run_lint(filename: str) -> None:
   """Run checks on *.py notebook code (saved using jupytext or from menu)."""
   if not pathlib.Path(filename).is_file():
