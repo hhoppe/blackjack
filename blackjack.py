@@ -3672,7 +3672,7 @@ def explore_rule_variations(rules: Rules, strategy: Strategy = Strategy()) -> No
   """Given base rules, report house edge change as each parameter is varied from the base rules."""
   if 0:
     print(configuration_text(rules, strategy, verbose=True))
-  report_edge(rules, strategy, prefix=(f'{"# original":26}: '))
+  report_edge(rules, strategy, prefix=f'{"# original":26}: ')
 
   for name, (high, low) in wizard_edge_calc.axes:
     current_value: Any = getattr(rules, name)

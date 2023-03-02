@@ -18,11 +18,11 @@ extend-exclude = ".|\\.ipynb"  # Exclude all; this project was not yet reformatt
 
 [tool.pylint.main]
 disable = [
-  "unspecified-encoding", "fixme", "redefined-builtin", "cell-var-from-loop",
-  "using-constant-test", "simplifiable-condition", "import-outside-toplevel", "line-too-long",
-  "too-many-lines", "too-few-public-methods", "too-many-arguments", "too-many-locals",
-  "too-many-instance-attributes", "too-many-statements",
-  "missing-module-docstring"
+    "unspecified-encoding", "fixme", "redefined-builtin", "cell-var-from-loop",
+    "using-constant-test", "simplifiable-condition", "import-outside-toplevel", "line-too-long",
+    "too-many-lines", "too-few-public-methods", "too-many-arguments", "too-many-locals",
+    "too-many-instance-attributes", "too-many-statements",
+    "missing-module-docstring", "use-dict-literal",
 ]
 reports = false
 score = false
