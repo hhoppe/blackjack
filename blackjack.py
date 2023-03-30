@@ -450,6 +450,7 @@ def test_action() -> None:
   check_eq(repr(action), '<Action.STAND: 1>')
   check_eq(action.code, 'S')
 
+
 test_action()
 
 
@@ -796,6 +797,7 @@ def combine_two_cards(card1: Card, card2: Card) -> tuple[int, bool]:
     return card1 + card2 + 10, True
   return card1 + card2, False
 
+
 numba_combine_two_cards = numba_jit('Tuple((int64, boolean))(int64, int64)')(combine_two_cards)
 
 
@@ -807,6 +809,7 @@ def combine_cards(cards: Cards) -> tuple[int, bool]:
   if total < 12 and 1 in cards:
     return total + 10, True
   return total, False
+
 
 check_eq(combine_cards((2, 5)), (7, False))
 check_eq(combine_cards((1, 2)), (13, True))
@@ -829,6 +832,7 @@ def add_card(total: int, soft: bool, card: Card) -> tuple[int, bool]:
   elif total < 12 and card == 1:
     total, soft = total + 10, True
   return total, soft
+
 
 numba_add_card = numba_jit('Tuple((int64, boolean))(int64, boolean, int64)')(add_card)
 
@@ -896,6 +900,7 @@ def get_canonical_hand_keeping_initial_cards_and_total(cards: Cards) -> Cards:
   assert len(cards) > 3
   total, soft = combine_cards(cards)
   return get_canonical_hand_with_initial_cards_and_total(cards[:2], total, soft)
+
 
 check_eq(get_canonical_hand_keeping_initial_cards_and_total((1, 2, 1, 10)), (1, 2, 1, 10))
 check_eq(get_canonical_hand_keeping_initial_cards_and_total((2, 3, 2, 4)), (2, 3, 6))
@@ -1015,6 +1020,7 @@ def test_card_probabilities() -> None:
   check_eq(card_probabilities((3, 3, 3), Rules.make(num_decks=1), 3)[3], 1 / 49)
   assert 3 not in card_probabilities((3, 3, 3, 3), Rules.make(num_decks=1), 3)
 
+
 test_card_probabilities()
 
 
@@ -1034,6 +1040,7 @@ def test_card_probabilities_for_state() -> None:
   check_eq(card_probabilities_for_state(((3, 3), 3, ()), Rules.make(num_decks=1))[3], 1 / 49)
   assert 3 not in card_probabilities_for_state(((3, 3, 3), 3, ()), Rules.make(num_decks=1))
   assert 3 not in card_probabilities_for_state(((3, 7), 3, (3, 3, 5, 8)), Rules.make(num_decks=1))
+
 
 test_card_probabilities_for_state()
 
@@ -2188,6 +2195,7 @@ def test_create_tables(rules: Rules, strategy: Strategy) -> None:
       hh.show(card1, card2, dealer1, have_split, is_first_action, player_total, player_soft)
       raise AssertionError
 
+
 if 0:
   test_create_tables(Rules.make(num_decks=1), Strategy(attention=Attention.TOTAL_OF_CARDS))
   test_create_tables(Rules.make(num_decks=6), Strategy(attention=Attention.INITIAL_CARDS_AND_TOTAL))
@@ -2444,6 +2452,7 @@ def test_simulate_single_shoe() -> None:
                           min_num_player_cards, hands_per_shoe),
            (4, 1.5, 4.25))
 
+
 if 0:
   test_simulate_single_shoe()
 
@@ -2646,6 +2655,7 @@ def experiment_fastest_num_shoes_per_seed() -> None:
         experiment_num_shoes_per_seed(rules, num_hands, num_shoes_per_seed)
       print()
 
+
 if 0:
   experiment_fastest_num_shoes_per_seed()
 
@@ -2700,6 +2710,7 @@ def simulate_shoes_all_cut_cards_nonjit(
       output_played_hands[card_index] += 1
       output_rewards[card_index] += reward
       card_index = card_index2
+
 
 if RECOMPUTE_CUT_CARD_ANALYSIS:
   simulate_shoes_all_cut_cards = numba_jit(
@@ -3073,6 +3084,7 @@ def download_hand_calc_results() -> None:
   # calcs['bjstrat'].download(Rules.make(num_decks=8))
   # calcs['bjstrat'].download(Rules.make(num_decks=8, hit_split_aces=True))
   del calcs
+
 
 if 0:
   download_hand_calc_results()
@@ -3855,6 +3867,7 @@ def verify_strategy_table_for_infinite_decks() -> None:
   check_eq(tables_6['soft'][0, 3], 'Dh')
   check_eq(tables_inf['soft'][0, 3], 'H')
 
+
 verify_strategy_table_for_infinite_decks()
 
 # %% [markdown]
@@ -4007,6 +4020,7 @@ def show_and_check_obo_false() -> None:
     assert 'd' not in code
     # There is only one SPLIT action (two aces against dealer 10):
     check_eq(code.count('p'), {'hard': 0, 'soft': 0, 'pair': 1}[name])
+
 
 if EFFORT >= 1:
   show_and_check_obo_false()
@@ -4244,6 +4258,7 @@ def analyze_hand_action_wrt_attention(hand: Hand, action: Action, rules: Rules) 
     if hand_calc_reward is not None:
       print(f'# {name:38} {hand_calc_reward: .6f}')
 
+
 if EFFORT >= 2:
   analyze_hand_action_wrt_attention(((10, 10), 4), Action.SPLIT, Rules.make(num_decks=1))
   with temporary_effort(3):
@@ -4292,6 +4307,7 @@ def demonstrate_importance_of_knowing_prior_split_cards(
     state = *hand, split_cards
     reward = reward_for_action(state, rules, strategy, action)
     print(f'# {hand=!s:14} {split_cards=!s:25} {reward=: .6f}')
+
 
 demonstrate_importance_of_knowing_prior_split_cards(((3, 10), 2))
 # We consider the case that the initial hand is a pair (3, 3) and we split the pair (and
@@ -4534,6 +4550,7 @@ def analyze_edge_wrt_attention(rules: Rules) -> None:
   print(f'# For {EFFORT=}:')
   for attention in Attention:
     report_edge(rules, Strategy(attention=attention), prefix=f'# {attention.name:<25.25} ')
+
 
 analyze_edge_wrt_attention(Rules.make(num_decks=1, cut_card=0))
 
@@ -5443,6 +5460,7 @@ def compute_house_edge_when_playing_a_fixed_number_of_hands() -> None:
   for num_decks in [1, 2, 4, 6, 8]:
     report_edge(Rules.make(num_decks=num_decks, cut_card=0), prefix=f'# ndecks={num_decks:<3} ')
 
+
 if EFFORT >= 1:
   compute_house_edge_when_playing_a_fixed_number_of_hands()
 # EFFORT=2:
@@ -5583,6 +5601,7 @@ def show_added_global_variables_sorted_by_type() -> None:
     ]):
       print(f'{typename:24} {name}')
 
+
 show_added_global_variables_sorted_by_type()
 
 # %%
@@ -5610,6 +5629,7 @@ def run_lint(filename: str) -> None:
   hh.run('echo autopep8; autopep8 -j8 -d .')
   hh.run('echo mypy; mypy . || true')
   hh.run('echo pylint; pylint -j8 . || true')
+
 
 run_lint('blackjack.py')
 
