@@ -130,7 +130,6 @@ import numpy as np
 import tqdm
 
 # %%
-# %%capture
 EFFORT: Literal[0, 1, 2, 3] = 0
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at low precision (~3 minutes).
@@ -140,6 +139,8 @@ EFFORT: Literal[0, 1, 2, 3] = 0
 
 RECOMPUTE_CUT_CARD_ANALYSIS = False
 """If True, perform expensive recomputation of cut-card analysis for results graphs."""
+
+_DUMMY = 0
 
 # %%
 _F = typing.TypeVar('_F', bound=Callable[..., Any])
@@ -226,7 +227,6 @@ def show_kernel_memory_resident_set_size() -> None:
 
 
 # %%
-# %%capture
 tqdm_stdout = functools.partial(
     tqdm.tqdm, leave=False, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
     bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]')
@@ -235,6 +235,8 @@ tqdm_stdout = functools.partial(
 # jupyterlab does not correctly handle more than two backspaces ('\b');
 # `tqdm.notebook.tqdm()`, which displays HTML, does not work with multiprocessing and does not
 # erase completely; `progressbar2` is poorly documented; `rich` requires ipywidget.
+
+_DUMMY = 0
 
 # %%
 hh.adjust_jupyterlab_markdown_width()
@@ -280,6 +282,7 @@ hh.adjust_jupyterlab_markdown_width()
 # "In Pitch Blackjack (i.e., single deck or double deck), the cut card is inserted closer to the
 # top of the deck, about 1/2 of the way down.  In most cases, the deck is shuffled after
 # each hand of play."
+
 
 def default_cut_card(num_decks: float) -> int:
   """Return the default number of cards in front of the cut-card for a shoe with `num_decks`."""
@@ -379,7 +382,6 @@ class Rules:
 
 
 # %%
-# %%capture
 BEST_RULES = Rules.make(num_decks=1, split_to_num_hands=math.inf, resplit_aces=True,
                         hit_split_aces=True, double_split_aces=True, cut_card=0)
 """Combination of rules with the lowest house edge (which is in fact negative)."""
@@ -388,6 +390,8 @@ WORST_RULES = Rules.make(num_decks=math.inf, blackjack_payout=1, hit_soft17=Fals
                          late_surrender=False, double_min_total=10, double_after_split=False,
                          split_to_num_hands=2)
 """Combination of rules with the highest house edge."""
+
+_DUMMY = 0
 
 # (Although the ingenious `Rules.make(num_decks=1, ..., cut_card=5)` has a low house edge,
 # its edge is not as low as `Rules.make(num_decks=math.inf)`.)
@@ -521,7 +525,6 @@ class Strategy:
 
 
 # %%
-# %%capture
 BASIC_STRATEGY = Strategy()  # (attention=Attention.TOTAL_OF_CARDS)
 """The basic (or "total-dependent") strategy considers the player's total rather than the
 individual card values."""
@@ -535,14 +538,16 @@ COMPOSITION_DEPENDENT_STRATEGY = Strategy(attention=Attention.HAND_AND_NUM_PRIOR
 of prior split hands.  It less powerful than HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS but only
 very slightly."""
 
+_DUMMY = 0
+
 # %%
-# %%capture
 BEST_STRATEGY = Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS)
 """Strategy that is most favorable to the player."""
 
 WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 """Strategy that is least favorable to the player."""
 
+_DUMMY = 0
 
 # %% [markdown]
 # ## <a name="Probabilistic-analysis"></a>Probabilistic analysis
@@ -696,6 +701,7 @@ WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 # %% [markdown]
 # ### Hands and totals
 
+
 # %%
 def check_hand(hand: Hand) -> None:
   """Check validity of hand."""
@@ -720,14 +726,17 @@ def generate_hands_totaling(total: int, rules: Rules, _prefix: Cards = ()) -> It
       if new_total < total:
         yield from generate_hands_totaling(total, rules, sequence)
 
+
 def generate_all_hands(rules: Rules) -> Iterator[Cards]:
   """Yield all possible (non-busted) hands, given `rules.num_decks`."""
   for total in range(4, 22):
     yield from generate_hands_totaling(total, rules)
 
+
 def number_of_unique_hands(rules: Rules) -> int:
   """Return the number of possible (non-busted) hands, given `rules.num_decks`."""
   return sum(1 for _ in generate_all_hands(rules))
+
 
 def generate_all_initial_cards() -> Iterator[Cards]:
   """Yield all possible initial two cards (such that card1 <= card2)."""
@@ -770,6 +779,7 @@ check_eq({num_decks: number_of_unique_hands(Rules.make(num_decks=num_decks))
 # The C++ program at http://www.bjstrat.net/playerHands.html reports 3082 possible non-busted
 # hands.  It includes single-card hands, which we do not.  Because there are 10 single-card hands,
 # the numbers match exactly!
+
 
 # %%
 def order_cards(card1: Card, card2: Card) -> tuple[Card, Card]:
@@ -821,6 +831,7 @@ def add_card(total: int, soft: bool, card: Card) -> tuple[int, bool]:
   return total, soft
 
 numba_add_card = numba_jit('Tuple((int64, boolean))(int64, boolean, int64)')(add_card)
+
 
 # %%
 def two_cards_reproducing_total(total: int, soft: bool, dealer1: Card) -> tuple[Card, Card]:
@@ -922,16 +933,19 @@ reward_after_dealer_upcard(), resulting in increased run time and memory utiliza
 RecentCards = Union[Cards, None]
 """Sorted tuple of card values (1-10), or None if not tracked."""
 
+
 def make_recent(cards: Cards, rules: Rules) -> RecentCards:
   """Activate card tracking if the shoe has a finite number of decks."""
   enabled = rules.num_decks != math.inf
   max_num_recent_cards = MAX_NUM_RECENT_CARDS_FOR_EFFORT[EFFORT]
   return tuple(sorted(cards[:max_num_recent_cards])) if enabled else None
 
+
 def make_recent_from_state(state: State, rules: Rules) -> RecentCards:
   """Activate card tracking if the shoe has a finite number of decks."""
   player_cards, dealer1, split_cards = state
   return make_recent((*player_cards, dealer1, *split_cards), rules)
+
 
 def add_recent(recent_cards: RecentCards, new_card: Card) -> RecentCards:
   """Add a new card to the tuple of recent cards if tracking is active."""
@@ -1029,6 +1043,7 @@ test_card_probabilities_for_state()
 # counts; there is room in a 64-bit int to encode all card counts for 8 decks:
 # print((8*4*4 + 1)**1 * (8*4 + 1)**9 / 2**64)  # 0.0003245
 
+
 # %%
 def probability_dealer_bj(state: State, rules: Rules) -> float:
   """Return the probability that the dealer holds an (ace, 10)."""
@@ -1049,6 +1064,7 @@ def probability_dealer_bj(state: State, rules: Rules) -> float:
 
 # %% [markdown]
 # ### Reward on dealer draw
+
 
 # %%
 def reward_after_dealer_upcard(state: State, rules: Rules) -> float:
@@ -1123,6 +1139,7 @@ def reward_after_dealer_hits(player_total: int, dealer_total: int, dealer_soft: 
 
 # %% [markdown]
 # ### Reward on player action
+
 
 # %%
 def reward_for_initial_hand(state: State, rules: Rules, strategy: Strategy,
@@ -1577,6 +1594,7 @@ if 0:
 #         0.082    4.726 best_reward_estimate_and_action_using_total_of_cards (/tmp/ipykernel:1)
 #         0.035    6.834 reward_for_double (/tmp/ipykernel:1)
 
+
 # %%
 def show_basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> None:
   """Show 3 tables of optimal actions for the basic strategy."""
@@ -1648,7 +1666,6 @@ def verify_action_tables(rules: Rules, expected: Mapping[str, str]) -> None:
 # default rules:
 
 # %%
-# %%capture
 EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
     'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
@@ -1735,8 +1752,9 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
 }
 """Expected tables for "dealer stands on soft 17" with 6 decks."""
 
+_DUMMY = 0
+
 # %%
-# %%capture
 EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
     'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
@@ -1823,8 +1841,9 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
 }
 """Expected tables for "dealer stands on soft 17" with 1 deck."""
 
+_DUMMY = 0
+
 # %%
-# %%capture
 EXPECTED_COMPOSITION_DEPENDENT_DIFFERENCES = {
     6: [(((7, 8), 10), Action.SURRENDER, Action.HIT)],
     4: [(((7, 8), 10), Action.SURRENDER, Action.HIT)],
@@ -1846,9 +1865,11 @@ EXPECTED_COMPOSITION_DEPENDENT_DIFFERENCES = {
 bs_action, cd_action) tuples for which the optimal basic-strategy (bs) action differs from
 the optimal composition-dependent (cd) action."""
 
+_DUMMY = 0
 
 # %% [markdown]
 # ### Probabilistic house edge
+
 
 # %%
 def normalize_rules_for_probabilistic_analysis(rules: Rules) -> Rules:
@@ -2050,6 +2071,7 @@ if 0:
 
 # %% [markdown]
 # ### Create split/action tables
+
 
 # %%
 def generate_possible_action_table_indices(
@@ -2599,6 +2621,7 @@ if 0:
 # With numba inline='always':    6.3 s
 # Without numba inline='always': 7.3 s
 
+
 # %%
 def experiment_num_shoes_per_seed(rules: Rules, num_hands: int, num_shoes_per_seed: int) -> None:
   """Report the simulation time for specified parameters."""
@@ -2612,6 +2635,7 @@ def experiment_num_shoes_per_seed(rules: Rules, num_hands: int, num_shoes_per_se
                           max_time=5.0)
     print(f'# num_decks={rules.num_decks}  {num_hands=:<13_}'
           f' {num_shoes_per_seed=:<6_} {elapsed:.03f} s')
+
 
 def experiment_fastest_num_shoes_per_seed() -> None:
   """Run experiments to find fast settings for `get_num_shoes_per_seed`."""
@@ -2651,6 +2675,7 @@ if 0:
 # For efficiency, rather than directly storing at each position the number of played hands
 # and rewards, we store their *deltas* (with respect to cut-card position)
 # and then perform a cumulative sum of the array values as a postprocess.
+
 
 # %%
 def simulate_shoes_all_cut_cards_nonjit(
@@ -3235,6 +3260,7 @@ if 0:
 #  DOUBLE  bs=-0.990987 id=-0.990987 sim=-0.991046±0.000128   cd=-0.990987  wiz:-0.990987  bjstrat:-0.991000
 # [keep line for pylint]
 
+
 # %%
 def look_for_hands_with_differences_in_calculated_optimal_actions(
     rules: Rules, *, expected_differences: list[Hand] | None = None) -> None:
@@ -3603,6 +3629,7 @@ for _edge_calc in EDGE_CALCULATORS.values():
 # %% [markdown]
 # ### <a name="Our-house-edge-calculator"></a>Our house edge calculator
 
+
 # %%
 def configuration_text(rules: Rules, strategy: Strategy, verbose: bool = False) -> str:
   """Return a multiline summary of rules and strategy."""
@@ -3783,6 +3810,7 @@ verify_action_tables(Rules.make(hit_soft17=False),
 # description: "only 6 cells are changed: hit on 11 vs. A, hit on 15 vs. A, stand on 17 vs. A,
 # stand on A,7 vs. 2, stand on A,8 vs. 6, and split on 8,8 vs. A".
 
+
 # %%
 def table_difference_locations(tables1: Mapping[str, _NDArray],
                                tables2: Mapping[str, _NDArray]) -> dict[str, list[tuple[int, int]]]:
@@ -3816,6 +3844,7 @@ if EFFORT >= 1:
 # %%
 if 0:
   show_basic_strategy_tables(Rules.make(num_decks=math.inf))
+
 
 def verify_strategy_table_for_infinite_decks() -> None:
   """Check that the infinite-deck action table has a single differing entry."""
@@ -3966,6 +3995,7 @@ analyze_hand(((7, 7), 10), Rules.make(num_decks=1, hit_soft17=False))
 # dealer hole card is never dealt after the player surrenders;
 # the situation is unclear.
 
+
 # %%
 def show_and_check_obo_false() -> None:
   """Show strategy when player loses added bets (SPLIT/DOUBLE) to dealer bj."""
@@ -3991,6 +4021,7 @@ if EFFORT >= 1:
 #
 # From Wikipedia: "For example, players should ordinarily STAND when holding 12 against a dealer 4.
 # But in a single deck game, players should HIT if their 12 consists of a 10 and a 2."
+
 
 # %%
 def analyze_differences_using_composition_dependent_strategy(
@@ -4106,6 +4137,7 @@ assert 1.94 < _value_sdv < 1.95
 # %% [markdown]
 # ## <a name="Hand-calculator-results"></a>Hand calculator results
 
+
 # %%
 def find_significant_reward_differences_across_hand_calculators(rules: Rules) -> None:
   """Look for differences across hand calculators on all initial hands."""
@@ -4197,6 +4229,7 @@ if 0:
 # - Here we see how the hand reward increases monotonically with the increase in `Attention`
 #   of the player strategy:
 
+
 # %%
 def analyze_hand_action_wrt_attention(hand: Hand, action: Action, rules: Rules) -> None:
   """Show reward for `action` on `hand` with progressively more expansive attention settings."""
@@ -4243,6 +4276,7 @@ if EFFORT >= 2:
 # HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS  0.225450
 # wiz                                     0.252190
 # bjstrat                                 0.224200
+
 
 # %%
 def demonstrate_importance_of_knowing_prior_split_cards(
@@ -4341,6 +4375,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # (With EFFORT=0 there are about 4 differences.)
 
+
 # %%
 def test_some_split_hands1(actions: Iterable[Action] = ()) -> None:
   """Compare split rewards on (10, 10) hands with other hand calculators."""
@@ -4387,6 +4422,7 @@ if 0:
 #  SPLIT   id=-0.316452 sim=-0.316442±0.000036   cd=-0.315144  wiz:-0.262691* bjstrat:-0.315300*
 # hand=((10, 10), 1)  EFFORT=3
 #  SPLIT   id=-0.495792 sim=-0.495781±0.000038   cd=-0.495613  wiz:-0.445244* bjstrat:-0.495800*
+
 
 # %%
 def test_some_split_hands2(dealer1: int = 10) -> None:
@@ -4490,6 +4526,7 @@ analyze_hand(((1, 10), 1), Rules.make(num_decks=1, obo=False))
 # <a name="analyze-edge-wrt-attention"><a>
 # - We first see how the house edge decreases monotonically with increased `Attention` in the
 #   player strategy:
+
 
 # %%
 def analyze_edge_wrt_attention(rules: Rules) -> None:
@@ -4721,6 +4758,7 @@ analyze_number_of_decks(Rules.make(hit_soft17=False, cut_card=0))
 # %% [markdown]
 # ### Subset of player actions
 
+
 # %%
 def analyze_subset_of_player_actions(rules: Rules) -> None:
   """Tabulate the house edge as a function of the subset of player actions."""
@@ -4758,6 +4796,7 @@ analyze_subset_of_player_actions(Rules.make())
 
 # %% [markdown]
 # ### Rule variations
+
 
 # %%
 def analyze_rule_variations(rules: Rules, pattern: str = '.') -> None:
@@ -5054,6 +5093,7 @@ if 0:
 # %% [markdown]
 # - Next we try to reproduce the Wikipedia results on the progressively decreasing benefits
 # of composition-dependent strategy as function of an increasing number of decks.
+
 
 # %%
 def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) -> None:
@@ -5395,6 +5435,7 @@ compute_and_plot_cut_card_analysis_results()
 # EFFORT=2: 11_000 s (500 s for num_decks=1)
 # EFFORT=3: ~15 h (2_500 s for num_decks=1)
 
+
 # %%
 def compute_house_edge_when_playing_a_fixed_number_of_hands() -> None:
   """Obtain this number to compare with "continuous reshuffle" in the plots."""
@@ -5524,6 +5565,7 @@ hh.analyze_lru_caches(globals())
 # basic_strategy_tables                    13/inf        0.278 hit=            5 miss=           13
 # create_tables                           122/inf        0.492 hit=          118 miss=          122
 # 10.2 GiB Mem; 2_450 s
+
 
 # %%
 def show_added_global_variables_sorted_by_type() -> None:
