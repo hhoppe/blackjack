@@ -140,7 +140,7 @@ EFFORT: Literal[0, 1, 2, 3] = 0
 RECOMPUTE_CUT_CARD_ANALYSIS = False
 """If True, perform expensive recomputation of cut-card analysis for results graphs."""
 
-_DUMMY = 0
+_DUMMY = 0  # Dummy statement to omit notebook cell output.
 
 # %%
 _F = typing.TypeVar('_F', bound=Callable[..., Any])
@@ -5608,6 +5608,7 @@ show_added_global_variables_sorted_by_type()
 hh.show_notebook_cell_top_times()
 # EFFORT=0: ~165 s (bottleneck is prob. computations)
 #      Colab: ~560 s with 20% num_hands; max 12 GB mem; table of contents.
+#  SageMaker: ~870 s with 100% num_hands; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
 #     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
 #   DeepNote: ~550 s with 20% num_hands; max 5 GB mem; table of contents; copies GitHub; must login.
@@ -5626,7 +5627,8 @@ def run_lint(filename: str) -> None:
   """Run checks on *.py notebook code (saved using jupytext or from menu)."""
   if not pathlib.Path(filename).is_file():
     return
-  hh.run('echo autopep8; autopep8 -j8 -d .')
+  # On SageMaker Studio Lab, if autopep8 sees ~/.config/pycodestyle, ./pyproject.toml is ignored.
+  hh.run('echo autopep8; autopep8 --global-config skip -j8 -d .')
   hh.run('echo mypy; mypy . || true')
   hh.run('echo pylint; pylint -j8 . || true')
 
