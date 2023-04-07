@@ -866,7 +866,7 @@ def two_cards_reproducing_total(total: int, soft: bool, dealer1: Card) -> tuple[
 
 
 # %%
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_canonical_hand_with_initial_cards_and_total(initial_cards: tuple[Card, Card],
                                                     total: int, soft: bool) -> Cards:
   """Return cards with specified initial two cards, total, and softness."""
@@ -894,7 +894,7 @@ def get_canonical_hand_with_initial_cards_and_total(initial_cards: tuple[Card, C
 
 
 # %%
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_canonical_hand_keeping_initial_cards_and_total(cards: Cards) -> Cards:
   """Return new cards with the same initial two cards and the same total and softness."""
   assert len(cards) > 3
@@ -1396,7 +1396,7 @@ def best_reward_estimate_and_action(state: State, rules: Rules,
 
 
 # %%
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def best_reward_estimate_and_action_using_non_first_total(
     player_total: int, player_soft: bool, dealer1: Card,
     rules: Rules, strategy: Strategy) -> tuple[float, Action]:
@@ -1410,7 +1410,7 @@ def best_reward_estimate_and_action_using_non_first_total(
 
 
 # %%
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def best_reward_estimate_and_action_using_total_of_cards(
     state: State, rules: Rules, strategy: Strategy) -> tuple[float, Action]:
   """We memoize this particular case of using Attention.TOTAL_OF_CARDS."""
@@ -1481,7 +1481,7 @@ if 0:
 # ### Basic strategy
 
 # %%
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def reward_for_basic_strategy_total(player_total: int, player_soft: bool, dealer1: Card,
                                     rules: Rules, strategy: Strategy, action: Action) -> float:
   """Compute the per-action expected reward for each cell (player_total, dealer1) of the two
@@ -1530,7 +1530,7 @@ def reward_for_basic_strategy_total(player_total: int, player_soft: bool, dealer
 
 
 # %%
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict[str, _NDArray]:
   """Return a dictionary of three 2D arrays (named 'hard', 'soft', 'pair') indexed by
   [hard_player_total | soft_player_total | pair_value, dealer1_index], whose cell values are the
@@ -2841,7 +2841,7 @@ class HandCalculator:
 
   def __init__(self, name: str) -> None:
     self.name = name
-    self.read_downloaded = functools.lru_cache(maxsize=None)(self._uncached_read_downloaded)
+    self.read_downloaded = functools.cache(self._uncached_read_downloaded)
 
   def __call__(self, hand: Hand, action: Action, rules: Rules) -> float | None:
     """Return the (maybe cached) expected `hand` reward for `action` under `rules` (if known)."""
@@ -2901,7 +2901,7 @@ class WizardHandCalculator(HandCalculator):
 
   def __init__(self) -> None:
     super().__init__('wiz')
-    self.query = functools.lru_cache(maxsize=None)(self._uncached_query)
+    self.query = functools.cache(self._uncached_query)
 
   def _uncached_query(self, hand: Hand, rules: Rules) -> str:
     """Return response from https://wizardofodds.com/games/blackjack/hand-calculator/."""
@@ -2963,7 +2963,7 @@ class BjstratHandCalculator(HandCalculator):
 
   def __init__(self) -> None:
     super().__init__('bjstrat')
-    self.query = functools.lru_cache(maxsize=None)(self._uncached_query)
+    self.query = functools.cache(self._uncached_query)
 
   def _uncached_query(self, player_cards: Cards, rules: Rules) -> str:
     """Return response from http://www.bjstrat.net/cgi-bin/cdca.cgi ."""
@@ -3016,7 +3016,7 @@ class BjstratHandCalculator(HandCalculator):
               Action.SPLIT: ('SPL3', 'SPL2', 'SPL1'), Action.SURRENDER: ('Surr',)}[action]
     for label in labels:
       action_s = f'class="vertLabel">{label}</label>'
-      index0, = (n for n, line in enumerate(lines) if action_s in line)
+      (index0,) = (n for n, line in enumerate(lines) if action_s in line)
       dealer1_index = 11 if dealer1 == 1 else dealer1
       line = lines[index0 + dealer1_index - 1]
       if '<label class="blankLabel">&nbsp;</label>' not in line:
@@ -3553,7 +3553,7 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
 
   def __init__(self) -> None:
     super().__init__('bja')
-    self._cached_call = functools.lru_cache(maxsize=None)(self._uncached_call)
+    self._cached_call = functools.cache(self._uncached_call)
 
   def _uncached_call(self, rules: Rules, strategy: Strategy) -> float | None:
     """Return the house edge (or None if unknown)."""
