@@ -209,12 +209,12 @@ def multiprocessing_is_available() -> bool:
 def temporary_effort(effort: int) -> Iterator[None]:
   """Temporarily set the global `EFFORT` to `effort` and clear all memoization caches."""
   assert 0 <= effort <= 3
-  hh.clear_lru_caches(globals())
+  hh.clear_functools_caches(globals())
   try:
     with hh.temporary_assignment(globals(), 'EFFORT', effort):
       yield
   finally:
-    hh.clear_lru_caches(globals())
+    hh.clear_functools_caches(globals())
 
 
 # %%
@@ -5534,12 +5534,12 @@ if EFFORT >= 1:
 
 # %%
 if 0:  # Run a single Rules rather than the full notebook.
-  hh.clear_lru_caches(globals())
+  hh.clear_functools_caches(globals())
   report_edge(Rules.make())
 
 # Note that these numbers only reflect usage since the last call to temporary_effort(); that is
 # the reason that basic_strategy_tables() shows zero hits.
-hh.analyze_lru_caches(globals())
+hh.analyze_functools_caches(globals())
 
 # EFFORT=2 single report_edge(Rules.make())
 # Rules() Strategy() EFFORT=2:
