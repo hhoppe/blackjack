@@ -1181,18 +1181,19 @@ def action_allowed(state: State, rules: Rules, action: Action) -> bool:
   is_first_action = len(player_cards) == 2
   player_total, player_soft = combine_cards(player_cards)
 
-  if action is Action.DOUBLE:
-    if (not is_first_action or
-        (rules.double_min_total > 0 and (player_soft or player_total < rules.double_min_total))):
-      return False
+  match action:
+    case Action.DOUBLE:
+      if (not is_first_action or
+          (rules.double_min_total > 0 and (player_soft or player_total < rules.double_min_total))):
+        return False
 
-  elif action is Action.SPLIT:
-    if not is_first_action or player_cards[0] != player_cards[1] or rules.split_to_num_hands == 0:
-      return False
+    case Action.SPLIT:
+      if not is_first_action or player_cards[0] != player_cards[1] or rules.split_to_num_hands == 0:
+        return False
 
-  elif action is Action.SURRENDER:
-    if not is_first_action or not rules.late_surrender:
-      return False
+    case Action.SURRENDER:
+      if not is_first_action or not rules.late_surrender:
+        return False
 
   return True
 
@@ -1209,36 +1210,37 @@ def reward_for_action(state: State, rules: Rules, strategy: Strategy, action: Ac
       (is_first_action and action not in strategy.first_actions)):
     return DISALLOWED
 
-  if action is Action.STAND:
-    reward = reward_after_dealer_upcard(state, rules)
+  match action:
+    case Action.STAND:
+      reward = reward_after_dealer_upcard(state, rules)
 
-  elif action is Action.HIT:
-    player_total, player_soft = combine_cards(player_cards)
-    reward = 0.0
-    for card, prob in card_probabilities_for_state(state, rules).items():
-      player_total2, _ = add_card(player_total, player_soft, card)
-      if player_total2 > 21:
-        reward_card = -1.0  # Player busts and loses.
-      else:
-        state2 = state_hit_card(state, card)
-        reward_card = best_reward_and_action(state2, rules, strategy)[0]
-      reward += prob * reward_card
+    case Action.HIT:
+      player_total, player_soft = combine_cards(player_cards)
+      reward = 0.0
+      for card, prob in card_probabilities_for_state(state, rules).items():
+        player_total2, _ = add_card(player_total, player_soft, card)
+        if player_total2 > 21:
+          reward_card = -1.0  # Player busts and loses.
+        else:
+          state2 = state_hit_card(state, card)
+          reward_card = best_reward_and_action(state2, rules, strategy)[0]
+        reward += prob * reward_card
 
-  elif action is Action.DOUBLE:
-    reward = reward_for_double(state, rules)
+    case Action.DOUBLE:
+      reward = reward_for_double(state, rules)
 
-  elif action is Action.SPLIT:
-    reward = reward_for_split(state, rules, strategy)
+    case Action.SPLIT:
+      reward = reward_for_split(state, rules, strategy)
 
-  elif action is Action.SURRENDER:
-    reward = -0.5  # Lose half the bet (unless dealer has bj).
-    # if OBO, dealer_bj is already accounted for in reward_for_initial_hand().
-    if not rules.obo:
-      prob_dealer_bj = probability_dealer_bj(state, rules)
-      reward = -1.0 * prob_dealer_bj + reward * (1.0 - prob_dealer_bj)
+    case Action.SURRENDER:
+      reward = -0.5  # Lose half the bet (unless dealer has bj).
+      # if OBO, dealer_bj is already accounted for in reward_for_initial_hand().
+      if not rules.obo:
+        prob_dealer_bj = probability_dealer_bj(state, rules)
+        reward = -1.0 * prob_dealer_bj + reward * (1.0 - prob_dealer_bj)
 
-  else:
-    raise AssertionError(action)
+    case _:
+      raise AssertionError(action)
 
   return reward
 
@@ -5126,24 +5128,26 @@ def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) ->
       cut_card = 0 if rules.cut_card == 0 else default_cut_card(num_decks)
       modified_rules = dataclasses.replace(rules, num_decks=num_decks, cut_card=cut_card)
 
-      if solver == 'Wizard':
-        bs_edge = wizard_edge_calc(modified_rules, Strategy())
-        cd_edge = wizard_edge_calc(modified_rules, COMPOSITION_DEPENDENT_STRATEGY)
-        if bs_edge is None or cd_edge is None:
-          continue
+      match solver:
 
-      elif solver == 'Probabilistic':
-        bs_edge = probabilistic_house_edge(modified_rules, BASIC_STRATEGY)
-        cd_edge = probabilistic_house_edge(modified_rules, COMPOSITION_DEPENDENT_STRATEGY)
+        case 'Wizard':
+          bs_edge = wizard_edge_calc(modified_rules, Strategy())
+          cd_edge = wizard_edge_calc(modified_rules, COMPOSITION_DEPENDENT_STRATEGY)
+          if bs_edge is None or cd_edge is None:
+            continue
 
-      elif solver == 'Simulated':
-        num_hands = get_num_hands()
-        bs_edge = monte_carlo_house_edge(modified_rules, BASIC_STRATEGY, num_hands)[0]
-        cd_edge = monte_carlo_house_edge(
-            modified_rules, INITIAL_DEPENDENT_STRATEGY, num_hands)[0]
+        case 'Probabilistic':
+          bs_edge = probabilistic_house_edge(modified_rules, BASIC_STRATEGY)
+          cd_edge = probabilistic_house_edge(modified_rules, COMPOSITION_DEPENDENT_STRATEGY)
 
-      else:
-        raise AssertionError
+        case 'Simulated':
+          num_hands = get_num_hands()
+          bs_edge = monte_carlo_house_edge(modified_rules, BASIC_STRATEGY, num_hands)[0]
+          cd_edge = monte_carlo_house_edge(
+              modified_rules, INITIAL_DEPENDENT_STRATEGY, num_hands)[0]
+
+        case _:
+          raise AssertionError(solver)
 
       change = cd_edge - bs_edge
       print(f'# {num_decks:8} {bs_edge*100:20.3f} {cd_edge*100:18.3f} {change*100:17.4f}')
