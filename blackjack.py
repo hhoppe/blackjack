@@ -1240,7 +1240,7 @@ def reward_for_action(state: State, rules: Rules, strategy: Strategy, action: Ac
         reward = -1.0 * prob_dealer_bj + reward * (1.0 - prob_dealer_bj)
 
     case _:
-      raise AssertionError(action)
+      raise ValueError(action)
 
   return reward
 
@@ -1391,7 +1391,7 @@ def best_reward_estimate_and_action(state: State, rules: Rules,
       state, rules, strategy)
 
   else:
-    raise AssertionError(strategy.attention)
+    raise ValueError(strategy.attention)
 
   assert best_reward != DISALLOWED
   return best_reward, best_action
@@ -2329,6 +2329,7 @@ def simulate_hand(
       action_value = (Action.HIT.value if force_hit else
                       action_table_slice[int(is_first_action), player_total - 4, int(player_soft)])
 
+      # Unfortunately, numba does not support match/case control structure.
       if action_value == Action.STAND.value:
         if is_first_action and player_bj:
           player_gets_bj = True
@@ -3412,7 +3413,7 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
     """Return the table of house edges."""
     path = pathlib.Path('data/Blackjack House Edge - Wizard of Odds.html')
     if path.is_file():
-      text = path.read_text()
+      text = path.read_text(encoding='utf-8')
     else:
       try:
         url = 'https://wizardofodds.com/games/blackjack/calculator/'
@@ -5147,7 +5148,7 @@ def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) ->
               modified_rules, INITIAL_DEPENDENT_STRATEGY, num_hands)[0]
 
         case _:
-          raise AssertionError(solver)
+          raise ValueError(solver)
 
       change = cd_edge - bs_edge
       print(f'# {num_decks:8} {bs_edge*100:20.3f} {cd_edge*100:18.3f} {change*100:17.4f}')
