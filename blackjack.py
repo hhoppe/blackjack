@@ -286,14 +286,16 @@ hh.adjust_jupyterlab_markdown_width()
 
 def default_cut_card(num_decks: float) -> int:
   """Return the default number of cards in front of the cut-card for a shoe with `num_decks`."""
-  if num_decks == math.inf:
-    return 0  # (The implementation plays a fixed number of hands per shoe.)
-  assert num_decks >= 1 and num_decks == int(num_decks)
-  if num_decks == 1:
-    return 26  # The cut-card is at the middle of the deck.
-  if num_decks == 2:
-    return 2 * 52 - 26  # The cut-card is 0.5 decks from the rear of the shoe.
-  return int(num_decks) * 52 - 78  # The cut-card is 1.5 decks from the rear.
+  match num_decks:
+    case math.inf:
+      return 0  # (The implementation plays a fixed number of hands per shoe.)
+    case 1:
+      return 26  # The cut-card is at the middle of the deck.
+    case 2:
+      return 2 * 52 - 26  # The cut-card is 0.5 decks from the rear of the shoe.
+    case _:
+      assert num_decks > 2 and num_decks == int(num_decks)
+      return int(num_decks) * 52 - 78  # The cut-card is 1.5 decks from the rear.
 
 
 # %%
