@@ -35,3 +35,7 @@ good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
 [tool.pylint.format]
 indent-string = "  "
 expected-line-ending-format = "LF"
+
+[tool.pytype]
+keep_going = true
+exclude = ['Other', 'blackjack_other*', 'blackjack.py']

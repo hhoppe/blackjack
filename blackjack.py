@@ -2722,6 +2722,8 @@ if RECOMPUTE_CUT_CARD_ANALYSIS:
       'void(int64, int64[:, ::1], boolean[:, ::1], uint8[:, :, :, :, :, :, ::1],'
       ' float64, boolean, boolean, float64, boolean, int64[::1], float64[::1])')(
       simulate_shoes_all_cut_cards_nonjit)
+else:
+  simulate_shoes_all_cut_cards = simulate_shoes_all_cut_cards_nonjit
 
 
 # %%
