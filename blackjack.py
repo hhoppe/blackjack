@@ -243,7 +243,8 @@ hh.adjust_jupyterlab_markdown_width()
 
 
 # %% [markdown]
-# ## <a name="Define-Rules"></a>Define `Rules`
+# ## Define `Rules`
+# <a name="Define-Rules"></a>
 #
 # The `Rules` class below captures the many
 # [variations in blackjack rules](https://en.wikipedia.org/wiki/Blackjack#Rule_variations_and_effects_on_house_edge).
@@ -406,30 +407,32 @@ _DUMMY = 0
 # is always favorable to stand on (10, 10), so the issue is moot.
 
 # %% [markdown]
-# ## <a name="Define-Action-and-Strategy"></a>Define `Action` and `Strategy`
+# ## Define `Action` and `Strategy`
+# <a name="Define-Action-and-Strategy"></a>
 
 # %%
-class Action(hh.OrderedEnum):
+class Action(enum.Enum):  # hh.OrderedEnum not handled by pytype.
   """Player actions."""
-  code: str  # One-letter abbreviation used in strategy tables.
 
-  STAND = 'S'
-  HIT = 'H'
-  DOUBLE = 'D'
-  SPLIT = 'P'
-  SURRENDER = 'U'
-
-  def __new__(cls, code: str) -> Action:
-    value = len(cls.__members__) + 1
-    obj = object.__new__(cls)
-    obj._value_ = value
-    obj.code = code
-    return obj
+  STAND = enum.auto()
+  HIT = enum.auto()
+  DOUBLE = enum.auto()
+  SPLIT = enum.auto()
+  SURRENDER = enum.auto()
 
 
 Actions = FrozenSet[Action]
 ACTIONS = frozenset(Action)
 IMPOSSIBLE_ACTION_VALUE = 0  # (action.value are numbered starting at 1 as in enum.auto().)
+
+# One-letter abbreviation used in strategy tables.
+CODE_FOR_ACTION = {
+    Action.STAND: 'S',
+    Action.HIT: 'H',
+    Action.DOUBLE: 'D',
+    Action.SPLIT: 'P',
+    Action.SURRENDER: 'U',
+}
 
 COLOR_FOR_CODE = {
     'S': (1.0, 0.0, 0.0),  # Red.
@@ -450,7 +453,7 @@ def test_action() -> None:
   check_eq(action.name.lower(), 'stand')
   check_eq(str(action), 'Action.STAND')
   check_eq(repr(action), '<Action.STAND: 1>')
-  check_eq(action.code, 'S')
+  check_eq(CODE_FOR_ACTION[action], 'S')
 
 
 test_action()
@@ -553,7 +556,8 @@ WORST_STRATEGY = Strategy(first_actions=frozenset({Action.STAND, Action.HIT}))
 _DUMMY = 0
 
 # %% [markdown]
-# ## <a name="Probabilistic-analysis"></a>Probabilistic analysis
+# ## Probabilistic analysis
+# <a name="Probabilistic-analysis"></a>
 
 # %% [markdown]
 # **Graph representation**
@@ -1544,11 +1548,11 @@ def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict
 
   def code_from_actions(*actions: Action) -> str:
     """Return a short table cell label given an action and fallback actions."""
-    string = actions[0].code
+    string = CODE_FOR_ACTION[actions[0]]
     last_action = actions[0]
     for action in actions[1:]:
       if action is not last_action:
-        string += action.code.lower()
+        string += CODE_FOR_ACTION[action].lower()
         last_action = action
     return string
 
@@ -1948,7 +1952,8 @@ if 0:
 #         0.007    4.224 reward_for_basic_strategy_total (/tmp/ipykernel:1)
 
 # %% [markdown]
-# ## <a name="Monte-Carlo-simulation"></a> Monte Carlo simulation
+# ##  Monte Carlo simulation
+# <a name="Monte-Carlo-simulation"></a>
 
 # %% [markdown]
 # We generate many random shoes and simulate the playing of hand(s) from each shoe.
@@ -2678,7 +2683,8 @@ if 0:
 # 666 ms
 
 # %% [markdown]
-# ### <a name="Simulate-all-cut-cards"></a>Simulate all cut-cards
+# ### Simulate all cut-cards
+# <a name="Simulate-all-cut-cards"></a>
 
 # %% [markdown]
 # The approach is to consider many shoes, play all hands from each shoe
@@ -2825,7 +2831,8 @@ if 0:
 #         0.002    0.734 create_shoes (/tmp/ipykernel:8)
 
 # %% [markdown]
-# ## <a name="Hand-calculators"></a>Hand calculators
+# ## Hand calculators
+# <a name="Hand-calculators"></a>
 
 # %% [markdown]
 # **References**:
@@ -2931,7 +2938,7 @@ class WizardHandCalculator(HandCalculator):
           int(rules.hit_split_aces), int(rules.double_after_split),
           int(rules.late_surrender), encode(dealer1),
           ''.join(encode(card) for card in player_cards)]
-      url = 'https://wizardofodds.com/games/blackjack/hand-calculator/calculate.php?' + '&'.join(
+      url = 'https://wizardofodds.com/calculators-js/blackjack/calculate/?' + '&'.join(
           f'{chr(ord("a") + i)}={arg}' for i, arg in enumerate(args))
       with urllib.request.urlopen(urllib.request.Request(
           url, headers={'User-Agent': 'Chrome'})) as response:
@@ -3102,7 +3109,8 @@ if 0:
 
 
 # %% [markdown]
-# ### <a name="Our-hand-calculator"></a>Our hand calculator
+# ### Our hand calculator
+# <a name="Our-hand-calculator"></a>
 
 # %%
 class ProbHandCalculator(HandCalculator):
@@ -3113,7 +3121,7 @@ class ProbHandCalculator(HandCalculator):
 
   def _get_reward(self, hand: Hand, action: Action, rules: Rules) -> float | None:
     """Return the expected `hand` reward for `action` under `rules (if known)."""
-    state = *hand, ()
+    state = hand[0], hand[1], ()
     return reward_for_action(state, rules, COMPOSITION_DEPENDENT_STRATEGY, action)
 
   def test(self) -> None:
@@ -3137,7 +3145,7 @@ def post_peek_from_initial_reward_and_sdv(
     initial_reward: float, initial_reward_sdv: float, hand: Hand,
     action: Action, rules: Rules) -> tuple[float, float]:
   """Return the post-peek expected reward and reward_sdv, removing dealer bj if OBO."""
-  state = *hand, ()
+  state = hand[0], hand[1], ()
   prob_dealer_bj = probability_dealer_bj(state, rules) if rules.obo else 0.0
   player_cards, _ = hand
   player_bj = sorted(player_cards) == [1, 10] and action is Action.STAND
@@ -3174,7 +3182,7 @@ def post_peek_reward_for_action(state: State, rules: Rules, strategy: Strategy,
 def initial_reward_from_post_peek_reward(post_peek_reward: float, hand: Hand,
                                          action: Action, rules: Rules) -> float:
   """Return the initial expected reward, adding dealer bj if OBO."""
-  state = *hand, ()
+  state = hand[0], hand[1], ()
   prob_dealer_bj = probability_dealer_bj(state, rules) if rules.obo else 0.0
   (card1, card2), _ = hand
   assert card1 <= card2
@@ -3194,7 +3202,7 @@ def analyze_hand(hand: Hand, rules: Rules, *,
   We report: `bs`: basic strategy, `id`: initial-card-dependent strategy,
   `cd`: composition-dependent strategy, `wiz`: WizardOfOdds, `bjstrat`: bjstrat.net."""
   check_hand(hand)
-  state = *hand, ()
+  state = hand[0], hand[1], ()
   player_cards, _, _ = state
   is_initial_hand = len(player_cards) == 2
   # Skip SURRENDER if OBO because the reward is always -0.5.
@@ -3295,7 +3303,7 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
       hand = (card1, card2), dealer1
       cd_reward_actions = sorted(
           ((cd_hand_calc(hand, action, rules), action) for action in Action),
-          reverse=True)
+          key=lambda t: (t[0], t[1].value), reverse=True)
       cd_best_action = cd_reward_actions[0][1]
 
       all_reward_actions = {}
@@ -3305,7 +3313,7 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
           continue
         all_reward_actions[name] = reward_actions = sorted(
             ((hh.assert_not_none(hand_calc(hand, action, rules)), action) for action in Action),
-            reverse=True)
+            key=lambda t: (t[0], t[1].value), reverse=True)
         best_action = reward_actions[0][1]
         # (Bjstrat has a reward tie for ((2, 6), 5) on Rules.make(num_decks=1, hit_soft17=False).)
         if not (best_action is cd_best_action or
@@ -3336,7 +3344,8 @@ if 0:
 
 
 # %% [markdown]
-# ## <a name="House-edge-calculators"></a>House edge calculators
+# ## House edge calculators
+# <a name="House-edge-calculators"></a>
 
 # %% [markdown]
 # **References**:
@@ -3646,7 +3655,8 @@ for _edge_calc in EDGE_CALCULATORS.values():
 
 
 # %% [markdown]
-# ### <a name="Our-house-edge-calculator"></a>Our house edge calculator
+# ### Our house edge calculator
+# <a name="Our-house-edge-calculator"></a>
 
 
 # %%
@@ -3761,7 +3771,8 @@ if 0:
 # # Results
 
 # %% [markdown]
-# ## <a name="Tables-for-basic-strategy"></a>Tables for basic strategy
+# ## Tables for basic strategy
+# <a name="Tables-for-basic-strategy"></a>
 #
 # In blackjack, **basic strategy** refers to using some optimal-action tables based on
 # the dealer's upcard,
@@ -4064,7 +4075,7 @@ def analyze_differences_using_composition_dependent_strategy(
     for card1, card2 in generate_all_initial_cards():
       for dealer1 in range(1, 11):
         hand = (card1, card2), dealer1
-        state = *hand, ()
+        state = hand[0], hand[1], ()
         bs_action = get_best_action(state, modified_rules, BASIC_STRATEGY)
         cd_action = get_best_action(state, modified_rules, COMPOSITION_DEPENDENT_STRATEGY)
         if bs_action is cd_action:
@@ -4156,7 +4167,8 @@ assert 1.94 < _value_sdv < 1.95
 
 
 # %% [markdown]
-# ## <a name="Hand-calculator-results"></a>Hand calculator results
+# ## Hand calculator results
+# <a name="Hand-calculator-results"></a>
 
 
 # %%
@@ -4167,7 +4179,7 @@ def find_significant_reward_differences_across_hand_calculators(rules: Rules) ->
   for action, (card1, card2), dealer1 in itertools.product(
       Action, generate_all_initial_cards(), range(1, 11)):
     hand = (card1, card2), dealer1
-    state = *hand, ()
+    state = hand[0], hand[1], ()
     cd_reward = post_peek_reward_for_action(state, rules, strategy, action)
     for name, hand_calc in HAND_CALCULATORS.items():
       reward = hh.assert_not_none(hand_calc(hand, action, rules))
@@ -4254,7 +4266,7 @@ if 0:
 # %%
 def analyze_hand_action_wrt_attention(hand: Hand, action: Action, rules: Rules) -> None:
   """Show reward for `action` on `hand` with progressively more expansive attention settings."""
-  state = *hand, ()
+  state = hand[0], hand[1], ()
   print(f'# Hand={hand!s:<14} {EFFORT=}:')
   for attention in Attention:
     strategy = Strategy(attention=attention)
@@ -4311,7 +4323,7 @@ def demonstrate_importance_of_knowing_prior_split_cards(
                       (card1, card2), (card1, card1, card2, card2),
                       (card1, card1, card1, card2, card2, card2),
                       (card1, card1, card1, card3, card3, card3)]:
-    state = *hand, split_cards
+    state = hand[0], hand[1], split_cards
     reward = reward_for_action(state, rules, strategy, action)
     print(f'# {hand=!s:14} {split_cards=!s:25} {reward=: .6f}')
 
@@ -4537,7 +4549,8 @@ analyze_hand(((1, 10), 1), Rules.make(num_decks=1, obo=False))
 #  SURREND id=-0.653061 sim=-0.653057±0.000015   cd=-0.653061  wiz:-0.500000* bjstrat:-0.653100
 
 # %% [markdown]
-# ## <a name="House-edge-results"></a>House edge results
+# ## House edge results
+# <a name="House-edge-results"></a>
 
 # %% [markdown]
 # The "house edge" is the fraction of the action lost over
@@ -4795,8 +4808,9 @@ def analyze_subset_of_player_actions(rules: Rules) -> None:
                        {Action.SURRENDER, Action.SPLIT, Action.DOUBLE}]:
     actions = set(Action) - omit_actions
     strategy = Strategy(first_actions=frozenset(actions))
+    sorted_omit_actions = sorted(actions, key=lambda action: action.value)
     name = ('all (default)' if actions == set(Action) else
-            f'no {",".join(action.name for action in sorted(omit_actions))}')
+            f'no {",".join(action.name for action in sorted_omit_actions)}')
     report_edge(rules, strategy, prefix=f'# {name:<25} ')
 
 
@@ -5247,7 +5261,8 @@ if EFFORT >= 1:
 #        6                0.334              0.331           -0.0031
 
 # %% [markdown]
-# ## <a name="Effect-of-using-a-cut-card"></a>Effect of using a cut-card
+# ## Effect of using a cut-card
+# <a name="Effect-of-using-a-cut-card"></a>
 
 # %% [markdown]
 # A cut-card is often added to the shoe (e.g. 0.5 to 2.0 decks from the back), and the shoe is
@@ -5366,8 +5381,8 @@ def plot_cut_card_analysis_result(result: CutCardAnalysisResult, *,
                 arrowprops=dict(arrowstyle='->', lw=1))
 
   if legend:
-    first_actions_s = '{' + ','.join(action.name
-                                     for action in sorted(result.strategy.first_actions)) + '}'
+    sorted_first_actions = sorted(result.strategy.first_actions, key=lambda action: action.value)
+    first_actions_s = '{' + ','.join(action.name for action in sorted_first_actions) + '}'
     legend_text = [repr(result.rules).replace(f', {cut_card=}', ''),
                    re.sub(r'frozenset\(.*?\)', first_actions_s, repr(result.strategy)),
                    f'Simulation(num_shoes={result.num_shoes:_})']
@@ -5401,7 +5416,8 @@ def compute_and_plot_cut_card_analysis_results() -> None:
 
 
 # %% [markdown]
-# <a name="cut-card-graph" id="cut-card-graph"></a>The graphs below show how the house edge varies depending on
+# <a name="cut-card-graph" id="cut-card-graph"></a>
+# The graphs below show how the house edge varies depending on
 # the position of the cut-card in the shoe.
 #
 # We first consider a **single deck**, where the effect is most pronounced.

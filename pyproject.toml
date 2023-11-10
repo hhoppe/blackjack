@@ -38,4 +38,7 @@ expected-line-ending-format = "LF"
 
 [tool.pytype]
 keep_going = true
-exclude = ['Other', 'blackjack_other*', 'blackjack.py']
+exclude = ['Other', 'blackjack_other*']
+strict_none_binding = true
+use_enum_overlay = true
+use_fiddle_overlay = true
