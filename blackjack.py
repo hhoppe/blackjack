@@ -200,7 +200,7 @@ def numba_jit(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
 def multiprocessing_is_available() -> bool:
   """Return True if multiprocessing may enable a performance improvement."""
   has_cpu_limit = os.environ.get('CPU_LIMIT') == '1.0'  # Kubernetes on mybinder.org
-  return (multiprocessing.get_start_method() == 'fork' and multiprocessing.cpu_count() > 2 and
+  return ('fork' in multiprocessing.get_all_start_methods() and multiprocessing.cpu_count() > 2 and
           not has_cpu_limit)
 
 
@@ -2561,7 +2561,7 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
       print(f'{num_hands:_} {num_shoes:_} {estimated_work} '
             f'{estimated_work/min_work_per_task} {num_tasks}')
     shoes_per_task = math.ceil(num_shoes / num_tasks)
-    with multiprocessing.Pool(num_tasks) as pool:
+    with multiprocessing.get_context('fork').Pool(num_tasks) as pool:
       tasks_args = []
       start = start_shoe_index
       while start < stop_shoe_index:
@@ -2791,7 +2791,7 @@ def run_simulations_all_cut_cards(
 
   if parallel:
     shoes_per_task = math.ceil(num_shoes / multiprocessing.cpu_count())
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.get_context('fork').Pool() as pool:
       tasks_args = []
       start = start_shoe_index
       while start < stop_shoe_index:
