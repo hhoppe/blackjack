@@ -1636,16 +1636,16 @@ def show_basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) ->
       fontsize = 13 if len(code) <= 2 else 11
       ax.text(*yx[::-1], code, va='center', ha='center', fontsize=fontsize, bbox=props)
 
-    ax.set_anchor('N')  # Align subplots at top (North).
-    ax.set_ylim(ax.get_ylim()[::-1])  # Flip the vertical axis.
+    ax.set(anchor='N')  # Align subplots at top (North).
+    ax.set(ylim=ax.get_ylim()[::-1])  # Flip the vertical axis.
     ax.set_title(title, y=1.0, pad=40)
-    ax.set_ylabel('Player total' if index == 0 else None)
-    ax.set_xlabel('Dealer upcard')
+    ax.set(ylabel='Player total' if index == 0 else None)
+    ax.set(xlabel='Dealer upcard')
     ax.xaxis.set_ticks_position('top')
     ax.xaxis.set_label_position('top')
     ax.set(yticks=range(table.shape[0]), xticks=range(table.shape[1]))
-    ax.set_yticklabels(yticklabels)
-    ax.set_xticklabels([str(card) for card in range(2, 11)] + ['Ace'])
+    ax.set(yticklabels=yticklabels)
+    ax.set(xticklabels=[str(card) for card in range(2, 11)] + ['Ace'])
 
   # Subplot (1) "Player total is hard" and Subplot (2) "Player total is soft".
   for index, player_soft in enumerate([False, True]):
@@ -5359,10 +5359,10 @@ def plot_cut_card_analysis_result(result: CutCardAnalysisResult, *,
   ax.set_title('House edge as function of cut-card depth'
                f' for {num_decks} deck{"s" if num_decks != 1 else ""}')
   ax.set(ylabel='House edge %', xlabel='Number of shoe cards in front of cut-card',
-         xlim=(0, num_decks * 52 + 1))
-  # ax.set_ylim(0, ax.get_ylim()[1] + 0.02)
+         xlim=[0, num_decks * 52 + 1])
+  # ax.set(ylim=[0, ax.get_ylim()[1] + 0.02])
   yptp = ax.get_ylim()[1] - ax.get_ylim()[0]
-  ax.set_ylim(0 if num_decks == 1 else ax.get_ylim()[0], ax.get_ylim()[1] + yptp * 0.1)
+  ax.set(ylim=[0 if num_decks == 1 else ax.get_ylim()[0], ax.get_ylim()[1] + yptp * 0.1])
 
   if annotate:
     ax.annotate(f'default: {graph[cut_card]:.3f}%', xy=(cut_card, graph[cut_card]),
