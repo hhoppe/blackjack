@@ -1311,7 +1311,7 @@ def reward_for_split(state: State, rules: Rules, strategy: Strategy) -> float:
   num_split_loops = 10
 
   for _ in range(num_split_loops):
-    new_split_states: collections.defaultdict[Any, float] = collections.defaultdict(lambda: 0.0)
+    new_split_states = collections.defaultdict[Any, float](lambda: 0.0)
     for (split_cards, num_complete, num_incomplete), prob1 in split_states.items():
       current_split_num_hands = num_complete + num_incomplete
       split_allowed = current_split_num_hands < rules.split_to_num_hands and resplits_allowed
@@ -2960,7 +2960,7 @@ class WizardHandCalculator(HandCalculator):
     if match.group(1) == 'false':
       return DISALLOWED
 
-    match = re.search(f'"{action.name.capitalize()}":([-0-9.eE]+)', text)
+    match = re.search(rf'"{action.name.capitalize()}":([-\d.eE]+)', text)
     if not match:
       raise RuntimeError(f'Cannot parse {text}')
     return float(match.group(1))
@@ -2988,7 +2988,7 @@ class BjstratHandCalculator(HandCalculator):
 
     try:
       split_aces_to_num_hands = min(int(rules.split_to_num_hands), 4 if rules.resplit_aces else 2)
-      data_dict: dict[str, Any] = dict(
+      data_dict = dict[str, Any](
           txtDecks=int(rules.num_decks),
           bjOdds={1.0: 0, 1.2: 1, 1.5: 2, 2.0: 3}[rules.blackjack_payout],
           **(dict(chkS17='on') if not rules.hit_soft17 else {}),
@@ -3438,7 +3438,7 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
         return table
 
     table = np.full((6, 2, 2, 3, 3, 2, 2, 2, 2), math.inf)
-    regex = re.compile(r'^edgeTable' + r'\[(\d)\]' * 9 + r'=([-0-9.eE]+);$')
+    regex = re.compile(r'^edgeTable' + r'\[(\d)\]' * 9 + r'=([-\d.eE]+);$')
     for line in text.splitlines():
       if match := regex.match(line):
         table[tuple(map(int, match.groups()[:9]))] = match.groups()[-1]
@@ -3600,7 +3600,7 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
     except urllib.error.URLError:
       return None
 
-    match = re.search(r'"HE":"([-0-9.eE]+)"', text)
+    match = re.search(r'"HE":"([-\d.eE]+)"', text)
     if not match:
       raise RuntimeError(f'Cannot parse {text} from {url}')
     edge_percent = float(match.group(1))
@@ -4800,7 +4800,7 @@ analyze_number_of_decks(Rules.make(hit_soft17=False, cut_card=0))
 def analyze_subset_of_player_actions(rules: Rules) -> None:
   """Tabulate the house edge as a function of the subset of player actions."""
   print(f'# {rules} {EFFORT=}')
-  empty_set: set[Action] = set()
+  empty_set = set[Action]()
   for omit_actions in [empty_set,
                        {Action.SURRENDER},
                        {Action.SURRENDER, Action.SPLIT},
