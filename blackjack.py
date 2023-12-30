@@ -59,7 +59,7 @@
 
 # %% [markdown]
 # **Running this Jupyter notebook**:
-# - The notebook requires Python 3.8 or later.
+# - The notebook requires Python 3.9 or later.
 # - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU. <br/>
 #   (The notebook can also be [executed on a Colab server](
 #    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
@@ -92,8 +92,7 @@
 # ## Imports
 
 # %%
-# https://github.com/hhoppe/hhoppe-tools/blob/main/hhoppe_tools/__init__.py
-# !pip install -q hhoppe-tools matplotlib more-itertools 'numba>=0.55.1' tqdm
+# !pip install -q hhoppe-tools matplotlib more-itertools numba numpy tqdm
 
 # %%
 from __future__ import annotations
@@ -130,7 +129,7 @@ import numpy as np
 import tqdm
 
 # %%
-EFFORT: Literal[0, 1, 2, 3] = 0
+EFFORT: Literal[0, 1, 2, 3] = 1
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at low precision (~3 minutes).
 - 1: Most experiments, at normal precision (~40 minutes).
@@ -783,7 +782,7 @@ check_eq({num_decks: number_of_unique_hands(Rules.make(num_decks=num_decks))
           for num_decks in [1, 2, 4, 6, 8, math.inf]},
          {1: 2008, 2: 2796, 4: 3060, 6: 3072, 8: 3072, math.inf: 3072})
 
-# The C++ program at http://www.bjstrat.net/playerHands.html reports 3082 possible non-busted
+# The C++ program at https://www.bjstrat.net/playerHands.html reports 3082 possible non-busted
 # hands.  It includes single-card hands, which we do not.  Because there are 10 single-card hands,
 # the numbers match exactly!
 
@@ -2838,7 +2837,7 @@ if 0:
 # **References**:
 # - https://wizardofodds.com/games/blackjack/hand-calculator/
 #   &mdash; 6-digit accuracy, but seems incorrect on SPLIT actions.
-# - http://www.bjstrat.net/cgi-bin/cdca.cgi
+# - https://www.bjstrat.net/cgi-bin/cdca.cgi
 #   &mdash; 4-digit accuracy, with good SPLIT computations.
 
 # %% [markdown]
@@ -2973,18 +2972,18 @@ class WizardHandCalculator(HandCalculator):
 
 # %%
 class BjstratHandCalculator(HandCalculator):
-  """Hand analysis from http://www.bjstrat.net/cgi-bin/cdca.cgi ."""
+  """Hand analysis from https://www.bjstrat.net/cgi-bin/cdca.cgi ."""
 
   def __init__(self) -> None:
     super().__init__('bjstrat')
     self.query = functools.cache(self._uncached_query)
 
   def _uncached_query(self, player_cards: Cards, rules: Rules) -> str:
-    """Return response from http://www.bjstrat.net/cgi-bin/cdca.cgi ."""
+    """Return response from https://www.bjstrat.net/cgi-bin/cdca.cgi ."""
     total, soft = combine_cards(player_cards)
     n = 4 * int(rules.num_decks)
     softness = 'soft' if soft else 'hard'
-    url = 'http://www.bjstrat.net/cgi-bin/cdca.cgi'
+    url = 'https://www.bjstrat.net/cgi-bin/cdca.cgi'
 
     try:
       split_aces_to_num_hands = min(int(rules.split_to_num_hands), 4 if rules.resplit_aces else 2)
