@@ -5612,17 +5612,17 @@ hh.analyze_functools_caches(globals())
 # %%
 def show_added_global_variables_sorted_by_type() -> None:
   """Report any new global variables introduced by this notebook."""
-  for typename, name in sorted(
-      (type(value).__name__, name) for name, value in globals().items()):
-    if not any([
-        name in _ORIGINAL_GLOBALS,
-        name.startswith(('_',)),
-        'GenericAlias' in typename,
-        typename in ['ABCMeta', 'EnumMeta', 'type', 'function',
-                     'partial', '_lru_cache_wrapper', 'CPUDispatcher'],
-        len(name) >= 6 and name.upper() == name,
-        name in 'wizard_edge_calc cut_card_analysis_results'.split(),
-    ]):
+  ok_typenames = 'ABCMeta EnumMeta type function partial _lru_cache_wrapper CPUDispatcher'.split()
+  for typename, name in sorted((type(value).__name__, name) for name, value in globals().items()):
+    is_ok = (
+        name in _ORIGINAL_GLOBALS
+        or name.startswith(('_',))
+        or 'GenericAlias' in typename
+        or typename in ok_typenames
+        or (len(name) >= 6 and name.upper() == name)
+        or name in 'wizard_edge_calc cut_card_analysis_results'.split()
+    )
+    if not is_ok:
       print(f'{typename:24} {name}')
 
 
