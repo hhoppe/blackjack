@@ -129,7 +129,7 @@ import numpy as np
 import tqdm
 
 # %%
-EFFORT: Literal[0, 1, 2, 3] = 1
+EFFORT: Literal[0, 1, 2, 3] = hh.get_env_int('EFFORT', 1)  # type: ignore[assignment]
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at low precision (~3 minutes).
 - 1: Most experiments, at normal precision (~40 minutes).
@@ -410,7 +410,15 @@ _DUMMY = 0
 # <a name="Define-Action-and-Strategy"></a>
 
 # %%
-class Action(enum.Enum):  # hh.OrderedEnum not handled by pytype.
+# pytype fails on hh.OrderedEnum; it is ok with enum.Enum but then max((reward, action)) may fail.
+if typing.TYPE_CHECKING:
+  OrderedEnum = enum.Enum
+else:
+  OrderedEnum = hh.OrderedEnum
+
+
+# %%
+class Action(OrderedEnum):
   """Player actions."""
 
   STAND = enum.auto()
@@ -632,7 +640,7 @@ _DUMMY = 0
 #
 # As an example, `Attention.HAND_CARDS_ONLY` ignores the card values in any prior split hands,
 # so if $\text{state}$=`(player_cards, dealer1, split_cards)`,
-# $\text{Project}_{\text{HAND_CARDS_ONLY}}(\text{state})$=`(player_cards, dealer1, ())`.
+# $\text{Project}_{\text{HAND\_CARDS\_ONLY}}(\text{state})$ = `(player_cards, dealer1, ())`.
 #
 # Crucially, although we select the best action after projecting the state
 # to a simpler canonical state,
@@ -4125,7 +4133,8 @@ analyze_differences_using_composition_dependent_strategy(Rules.make())
 # `cd` is composition-dependent strategy, `wiz` is WizardOfOdds, and `bjstrat` is bjstrat.net.
 
 # %%
-analyze_hand(((7, 8), 10), Rules.make(num_decks=6))
+if EFFORT >= 1:
+  analyze_hand(((7, 8), 10), Rules.make(num_decks=6))
 # For this hand, the basic strategy (total-dependent) optimal action is SURRENDER, whereas the
 # initial-dependent and composition-dependent strategies show the optimal action to be HIT.
 
@@ -4136,7 +4145,8 @@ analyze_hand(((7, 8), 10), Rules.make(num_decks=6))
 #  DOUBLE  id=-0.999525 sim=-0.999494±0.000109   cd=-0.999525  wiz:-0.999525  bjstrat:-0.999500
 
 # %%
-analyze_hand(((2, 10), 4), Rules.make(num_decks=2))
+if EFFORT >= 1:
+  analyze_hand(((2, 10), 4), Rules.make(num_decks=2))
 # For this hand, the basic strategy (total-dependent) optimal action is STAND, whereas the
 # initial-dependent and composition-dependent strategies show the optimal action to be HIT.
 
@@ -4147,7 +4157,8 @@ analyze_hand(((2, 10), 4), Rules.make(num_decks=2))
 #  DOUBLE  id=-0.408411 sim=-0.408371±0.000121   cd=-0.408411  wiz:-0.408411  bjstrat:-0.408400
 
 # %%
-analyze_hand(((2, 6), 6), Rules.make(num_decks=1))
+if EFFORT >= 1:
+  analyze_hand(((2, 6), 6), Rules.make(num_decks=1))
 # For this hand, the basic strategy (total-dependent) optimal action is DOUBLE, whereas the
 # initial-dependent and composition-dependent strategies show the optimal action to be HIT.
 
@@ -4759,7 +4770,8 @@ report_edge(Rules.make(num_decks=1, hit_soft17=False, cut_card=24))
 #  house edge: prob~-0.161% (13s)  sim:-0.057% ±0.002%(79s)   wiz:-0.053%
 
 # %%
-analyze_number_of_decks(Rules.make(hit_soft17=False, late_surrender=False))
+if EFFORT >= 1:
+  analyze_number_of_decks(Rules.make(hit_soft17=False, late_surrender=False))
 # Rules(hit_soft17=False, late_surrender=False) EFFORT=2
 # ndecks=1   prob~-0.144% (11s)  sim:-0.021% ±0.002%(99s)   wiz:-0.031%*
 # ndecks=2   prob~ 0.193% (19s)  sim: 0.257% ±0.002%(63s)   wiz: 0.255%
@@ -4770,7 +4782,8 @@ analyze_number_of_decks(Rules.make(hit_soft17=False, late_surrender=False))
 # ndecks=inf prob: 0.512% (35s)  sim: 0.510% ±0.002%(63s)
 
 # %%
-analyze_number_of_decks(Rules.make(cut_card=0))
+if EFFORT >= 1:
+  analyze_number_of_decks(Rules.make(cut_card=0))
 # Rules(cut_card=0) EFFORT=2
 # ndecks=1   prob: 0.013% (11s)  sim: 0.012% ±0.002%(94s)   wiz: 0.008%* bja: 0.021%+
 # ndecks=2   prob: 0.328% (34s)  sim: 0.329% ±0.002%(75s)   wiz: 0.328%  bja: 0.316%+
@@ -4781,7 +4794,8 @@ analyze_number_of_decks(Rules.make(cut_card=0))
 # ndecks=inf prob: 0.629% (15s)  sim: 0.627% ±0.002%(63s)
 
 # %%
-analyze_number_of_decks(Rules.make(hit_soft17=False, cut_card=0))
+if EFFORT >= 1:
+  analyze_number_of_decks(Rules.make(hit_soft17=False, cut_card=0))
 # Rules(hit_soft17=False, cut_card=0) EFFORT=2
 # ndecks=1   prob:-0.161% (30s)  sim:-0.162% ±0.002%(94s)   wiz:-0.166%* bja:-0.197%+
 # ndecks=2   prob: 0.144% (17s)  sim: 0.144% ±0.002%(74s)   wiz: 0.141%* bja: 0.130%+
@@ -4971,7 +4985,8 @@ analyze_rule_variations(Rules.make(num_decks=1), pattern='resplit aces|hit after
 # our results match other online calculators well:
 
 # %%
-explore_rule_variations(Rules.make(num_decks=8, cut_card=0))
+if EFFORT >= 1:
+  explore_rule_variations(Rules.make(num_decks=8, cut_card=0))
 # original                : prob: 0.555% (38s)  sim: 0.558% ±0.002%(73s)   wiz: 0.555%  bja: 0.554%+
 # hit_soft17=False        : prob: 0.357% (18s)  sim: 0.358% ±0.002%(74s)   wiz: 0.357%  bja: 0.335%+
 # double_after_split=False: prob: 0.699% (50s)  sim: 0.702% ±0.002%(73s)   wiz: 0.699%  bja: 0.698%+
@@ -4988,7 +5003,8 @@ explore_rule_variations(Rules.make(num_decks=8, cut_card=0))
 # Possibly the 1D offset tables in Wizard are approximate.
 
 # %%
-explore_rule_variations(Rules.make(num_decks=8))
+if EFFORT >= 1:
+  explore_rule_variations(Rules.make(num_decks=8))
 # original                : prob~ 0.555% (39s)  sim: 0.578% ±0.002%(62s)   wiz: 0.569%*
 # hit_soft17=False        : prob~ 0.357% (18s)  sim: 0.377% ±0.002%(62s)   wiz: 0.371%*
 # double_after_split=False: prob~ 0.699% (42s)  sim: 0.721% ±0.002%(62s)   wiz: 0.713%*
@@ -5006,7 +5022,8 @@ explore_rule_variations(Rules.make(num_decks=8))
 # The BJA results are not close.
 
 # %%
-explore_rule_variations(Rules.make(num_decks=1, cut_card=0))
+if EFFORT >= 1:
+  explore_rule_variations(Rules.make(num_decks=1, cut_card=0))
 # original                : prob: 0.013% (12s)  sim: 0.012% ±0.002%(96s)   wiz: 0.008%* bja: 0.021%+
 # hit_soft17=False        : prob:-0.161% (12s)  sim:-0.162% ±0.002%(96s)   wiz:-0.166%* bja:-0.197%+
 # double_after_split=False: prob: 0.156% (36s)  sim: 0.155% ±0.002%(96s)   wiz: 0.152%* bja: 0.123%+
@@ -5026,7 +5043,8 @@ explore_rule_variations(Rules.make(num_decks=1, cut_card=0))
 # closest to the WizardOfOdds results:
 
 # %%
-explore_rule_variations(Rules.make(num_decks=1, cut_card=24))
+if EFFORT >= 1:
+  explore_rule_variations(Rules.make(num_decks=1, cut_card=24))
 # Observations: late_surrender=False introduces the greatest divergence.
 
 # original                : prob~ 0.013% (12s)  sim: 0.122% ±0.002%(82s)   wiz: 0.121%
@@ -5064,7 +5082,8 @@ analyze_number_of_decks(Rules.make(cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 # ndecks=inf prob: 0.629% (61s)  sim~ 0.627% ±0.002%(96s)
 
 # %%
-explore_rule_variations(Rules.make(num_decks=8, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
+if EFFORT >= 1:
+  explore_rule_variations(Rules.make(num_decks=8, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 
 # Our probabilistic results are an almost perfect match to the Wizard results, except for one
 # discrepancy: `hit_split_aces=True`.  For this one exception, our result agrees with Bjstrat and
@@ -5094,7 +5113,8 @@ if 0:
 # - A shoe containing only a single deck amplifies the effects of rule variations:
 
 # %%
-explore_rule_variations(Rules.make(num_decks=1, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
+if EFFORT >= 1:
+  explore_rule_variations(Rules.make(num_decks=1, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 
 # Our probabilistic results are a near-perfect match to both the WizardOfOdds and the Bjstrat
 # results, except for `hit_split_aces=True` where the Wizard result differs (as also observed
@@ -5630,7 +5650,8 @@ show_added_global_variables_sorted_by_type()
 
 # %%
 hh.show_notebook_cell_top_times()
-# EFFORT=0: ~165 s (bottleneck is prob. computations)
+# EFFORT=0: ~98 s (bottleneck is prob. computations)
+#        old: ~165 s (bottleneck is prob. computations)
 #      Colab: ~560 s with 20% num_hands; max 12 GB mem; table of contents.
 #  SageMaker: ~870 s with 100% num_hands; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
 #     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
@@ -5666,11 +5687,11 @@ run_lint('blackjack.py')
 # ```
 
 # %% [markdown]
+# # End
+
+# %% [markdown]
 # <!-- For Emacs:
 # Local Variables:
 # fill-column: 100
 # End:
 # -->
-
-# %% [markdown]
-# # End
