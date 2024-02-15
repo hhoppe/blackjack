@@ -42,3 +42,4 @@ exclude = ['Other', 'blackjack_other*']
 strict_none_binding = true
 use_enum_overlay = true
 use_fiddle_overlay = true
+disable = ["incomplete-match"]

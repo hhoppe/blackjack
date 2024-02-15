@@ -158,6 +158,11 @@ _ = np.seterr(all='raise')  # Let all numpy warnings raise errors.
 hh.start_timing_notebook_cells()
 
 # %%
+if not hh.in_notebook():
+  # Disable graphics plot windows when running this notebook as a script.
+  plt.show = lambda *args, **kwargs: None
+
+# %%
 Card = int
 """Card value satisfying 1 <= card <= 10, where ace is 1."""
 
@@ -221,6 +226,9 @@ def temporary_effort(effort: int) -> Iterator[None]:
 # %%
 def show_kernel_memory_resident_set_size() -> None:
   """Print the memory size of the IPython kernel."""
+  if sys.platform != 'linux':
+    warnings.warn('show_kernel_memory_resident_set_size is only implemented for linux.')
+    return
   command = f'ps -p {os.getpid()} -o rss --no-headers'
   output = subprocess.run(command, shell=True, check=True, capture_output=True, text=True).stdout
   rss_kb = int(output)
@@ -228,10 +236,12 @@ def show_kernel_memory_resident_set_size() -> None:
 
 
 # %%
-tqdm_stdout = functools.partial(
-    tqdm.tqdm, leave=False, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
-    bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]')
-"""Progress bar customized to show a short ascii text line on stdout."""
+def tqdm_stdout(*args: Any, **kwargs: Any) -> Any:
+  """Progress bar customized to show a short ascii text line on stdout."""
+  if not hh.in_notebook():
+    kwargs['disable'] = True
+  return tqdm.tqdm(*args, leave=False, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
+                   bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]', **kwargs)
 # Notes: tqdm uses '\r' and overwrites with spaces (annoying for copy-paste);
 # jupyterlab does not correctly handle more than two backspaces ('\b');
 # `tqdm.notebook.tqdm()`, which displays HTML, does not work with multiprocessing and does not
@@ -1209,6 +1219,9 @@ def action_allowed(state: State, rules: Rules, action: Action) -> bool:
     case Action.SURRENDER:
       if not is_first_action or not rules.late_surrender:
         return False
+
+    case _:
+      pass
 
   return True
 
@@ -5650,7 +5663,8 @@ hh.analyze_functools_caches(globals())
 # %%
 def show_added_global_variables_sorted_by_type() -> None:
   """Report any new global variables introduced by this notebook."""
-  ok_typenames = 'ABCMeta EnumMeta type function partial _lru_cache_wrapper CPUDispatcher'.split()
+  ok_typenames = ('ABCMeta EnumMeta EnumType type function partial'
+                  ' _lru_cache_wrapper CPUDispatcher').split()
   for typename, name in sorted((type(value).__name__, name) for name, value in globals().items()):
     is_ok = (
         name in _ORIGINAL_GLOBALS
