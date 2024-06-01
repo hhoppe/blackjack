@@ -2039,6 +2039,7 @@ def default_shoes_creator(rules: Rules) -> CreateShoes:
       shoe_size = SHOE_SIZE_FOR_INFINITE_DECKS
       return rng.choice(np.array(CARD_VALUES, dtype), (num_shoes, shoe_size))
 
+    # pylint: disable-next=possibly-used-before-assignment
     shoes = unshuffled_shoe[None].repeat(num_shoes, axis=0)
     return rng.permuted(shoes, axis=1, out=shoes)
 
