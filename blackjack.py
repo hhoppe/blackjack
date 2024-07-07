@@ -1646,7 +1646,7 @@ def show_basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) ->
 
   def subplot(index: int, table: _NDArray, title: str, yticklabels: Iterable[Any]) -> None:
     """Draw one of the 3 tables."""
-    ax = axs[index]
+    ax = typing.cast(np.ndarray[Any, Any], axs)[index]
     action_color = [[COLOR_FOR_CODE[re.sub(r'[a-z]*', '', a)] for a in row] for row in table]
     ax.matshow(action_color)
     ny, nx = table.shape
