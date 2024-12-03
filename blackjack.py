@@ -2982,15 +2982,15 @@ class WizardHandCalculator(HandCalculator):
       return None
 
     match = re.search(f'"Has{action.name.capitalize()}":([a-z]+)', text)
-    if not (match and match.group(1) in ('false', 'true')):
+    if not (match and match[1] in ('false', 'true')):
       raise RuntimeError(f'Cannot parse {text}')
-    if match.group(1) == 'false':
+    if match[1] == 'false':
       return DISALLOWED
 
     match = re.search(rf'"{action.name.capitalize()}":([-\d.eE]+)', text)
     if not match:
       raise RuntimeError(f'Cannot parse {text}')
-    return float(match.group(1))
+    return float(match[1])
 
   def test(self) -> None:
     """Run self-tests."""
@@ -3068,7 +3068,7 @@ class BjstratHandCalculator(HandCalculator):
     match = re.search(r'<label class="(?:pos|neg)EVLabel">(.+)</label>', line)
     if not match:
       raise RuntimeError(f'Cannot parse {text} for {(hand, action, line)}')
-    return float(match.group(1)) / 100
+    return float(match[1]) / 100
 
   def test(self) -> None:
     """Run self-tests."""
@@ -3630,7 +3630,7 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
     match = re.search(r'"HE":"([-\d.eE]+)"', text)
     if not match:
       raise RuntimeError(f'Cannot parse {text} from {url}')
-    edge_percent = float(match.group(1))
+    edge_percent = float(match[1])
     return edge_percent / 100
 
   def __call__(self, rules: Rules, strategy: Strategy) -> float | None:
