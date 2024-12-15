@@ -217,7 +217,7 @@ def temporary_effort(effort: int) -> Iterator[None]:
   assert 0 <= effort <= 4
   hh.clear_functools_caches(globals())
   try:
-    with hh.temporary_assignment(globals(), 'EFFORT', effort):
+    with hh.temporary_assignment(globals(), EFFORT=effort):
       yield
   finally:
     hh.clear_functools_caches(globals())
@@ -3873,7 +3873,7 @@ def table_difference_locations(tables1: Mapping[str, _NDArray],
                                tables2: Mapping[str, _NDArray]) -> dict[str, list[tuple[int, int]]]:
   """Identify the locations of any differing entries in table sets."""
   differences = {}
-  for (name1, table1), (name2, table2) in zip(tables1.items(), tables2.items()):
+  for (name1, table1), (name2, table2) in zip(tables1.items(), tables2.items(), strict=True):
     check_eq(name1, name2)
     differences[name1] = np.argwhere(table1 != table2).tolist()
   return differences
