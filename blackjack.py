@@ -95,6 +95,9 @@
 # !pip install -q hhoppe-tools matplotlib more-itertools numba numpy tqdm
 
 # %%
+# !if [ ! -f random32.py ]; then wget https://github.com/hhoppe/blackjack/raw/main/random32.py; fi
+
+# %%
 from __future__ import annotations
 
 import collections
@@ -126,8 +129,10 @@ import matplotlib.pyplot as plt
 import more_itertools
 import numba
 from numba import cuda
+import numba.cuda.random
 import numpy as np
 import tqdm
+import random32
 
 
 # %%
@@ -138,7 +143,7 @@ def omit_cell_output() -> None:
 
 # %%
 # To archive the notebook, run with value 2.
-EFFORT: Literal[0, 1, 2, 3, 4] = hh.get_env_int('EFFORT', 1)  # type: ignore[assignment]  # was 2??
+EFFORT: Literal[0, 1, 2, 3, 4] = hh.get_env_int('EFFORT', 2)  # type: ignore[assignment]  # was 2??
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at lowest precision (~40 seconds).
 - 1: Fast subset of experiments, at low precision (~2 minutes).
@@ -192,9 +197,10 @@ NUM_SUITS = 4
 DECK_SIZE = NUM_SUITS * len(CARD_VALUES)
 UNIFORM_CARD_PROB = {card: CARD_VALUES.count(card) / len(CARD_VALUES) for card in CARD_VALUES}
 DEFAULT_NUM_DECKS = 6
-SHOE_SIZE_FOR_INFINITE_DECKS = 6 * DECK_SIZE
+SHOE_SIZE_FOR_INFINITE_DECKS_CPU = 6 * DECK_SIZE
+SHOE_SIZE_FOR_INFINITE_DECKS_CUDA = 2 * DECK_SIZE
 SHOE_SIZE_FOR_SINGLE_HAND_INFINITE_DECKS = 20
-SPLIT_SECOND_CARDS_SIZE = 16
+SPLIT_SECOND_CARDS_SIZE = 12
 PLUS_MINUS_CHAR = '\u00b1'  # Used to indicate precision in Monte Carlo simulation results.
 PLUS_MINUS_STANDARD_DEVIATIONS = 2.0  # Results precision bracket; 95% probability within 2 sdv.
 WARNING_STANDARD_DEVIATIONS = 3.0  # Warning '*' in results; 99.7% probability within 3 sdv.
@@ -835,7 +841,7 @@ def combine_two_cards(card1: Card, card2: Card) -> tuple[int, bool]:
   return card1 + card2, False
 
 
-numba_combine_two_cards = numba_njit()(combine_two_cards)
+numba_combine_two_cards = numba_njit(inline='always')(combine_two_cards)
 
 
 # %%
@@ -871,7 +877,7 @@ def add_card(total: int, soft: bool, card: Card) -> tuple[int, bool]:
   return total, soft
 
 
-numba_add_card = numba_njit()(add_card)
+numba_add_card = numba_njit(inline='always')(add_card)
 
 
 # %%
@@ -2049,7 +2055,7 @@ def default_shoes_creator(rules: Rules) -> CreateShoes:
     rng = np.random.default_rng(seed)
 
     if rules.num_decks == math.inf:
-      shoe_size = SHOE_SIZE_FOR_INFINITE_DECKS
+      shoe_size = SHOE_SIZE_FOR_INFINITE_DECKS_CPU
       return rng.choice(np.array(CARD_VALUES, dtype), (num_shoes, shoe_size))
 
     # pylint: disable-next=possibly-used-before-assignment
@@ -2279,12 +2285,10 @@ if 0:
 
 
 # %%
-@hh.selective_lru_cache(maxsize=10**8, ignore_kwargs=('quiet',))
-def create_tables_cuda(
-      rules: Rules, strategy: Strategy, *, quiet: bool
-) -> tuple[_CudaArray, _CudaArray]:
+@functools.cache
+def create_tables_cuda(rules: Rules, strategy: Strategy) -> tuple[_CudaArray, _CudaArray]:
   """Create and memoize device versions of tables."""
-  split_table, action_table = create_tables(rules, strategy, quiet=quiet)
+  split_table, action_table = create_tables(rules, strategy, quiet=True)
   d_split = cuda.to_device(split_table)
   d_action = cuda.to_device(action_table)
   return d_split, d_action
@@ -2300,45 +2304,50 @@ def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: in
   In the rare case that the shoe is exhausted (e.g., due to splits and many small cards), a casino
   would reshuffle the discard pile.  We emulate this by jumping to new locations within the shoe
   (minus the tail cards in the current hand) using pseudorandom offsets based on shoe_index."""
+  int32 = numba.int32
   random_offset = index * 907 + shoe_index * 997  # All relatively prime.
-  index = (index + random_offset) % hand_start_card_index
+  index = int32((index + random_offset) % hand_start_card_index)
   return index
 
 
 # %%
 # Forced inlining of simulate_hand() into simulate_shoes_helper() and
 # simulate_shoes_all_cut_cards() provides a small 1.1x simulation speedup.
-@numba_njit(inline=('always' if EFFORT >= 3 else 'never'))
+@numba_njit(inline=('always' if EFFORT >= 2 else 'never'))
 def simulate_hand(
     shoe_index: int, shoe: _NDArray, card_index: int, split_table: _NDArray,
     action_table: _NDArray, min_num_player_cards: int, rules_blackjack_payout: float,
     rules_hit_soft17: bool, rules_obo: bool, rules_split_to_num_hands: float,
     rules_resplit_aces: bool, split_second_cards: _NDArray) -> tuple[float, int]:
   """Return `(reward, card_index)` after playing a hand from the shoe."""
-  hand_start_card_index = card_index
+  int32 = numba.int32
+  card_index = int32(card_index)
+  hand_start_card_index = int32(card_index)
 
   def get_card() -> Card:
     """Return a card value retrieved from the shoe."""
     nonlocal card_index
-    index = card_index
+    index = int32(card_index)
     card_index += 1
     if index >= len(shoe):
       index = end_of_shoe_reshuffle(index, shoe_index, hand_start_card_index)
     card: Card = shoe[index]
     return card
 
-  card1, dealer1, card2, dealer2 = get_card(), get_card(), get_card(), get_card()
+  card1, dealer1 = int32(get_card()), int32(get_card())
+  card2, dealer2 = int32(get_card()), int32(get_card())
   if card1 > card2:
     card1, card2 = card2, card1
   player_bj = card1 == 1 and card2 == 10
-  dealer_bj = abs(dealer1 - dealer2) == 9
+  dealer_bj = abs(int32(dealer1 - dealer2)) == 9
   # If player has blackjack, we allow player to consider (suboptimal) actions other than STAND.
   player_gets_bj = False
   if dealer_bj and rules_obo and not player_bj:
     return -1.0, card_index
 
   have_split = (card1 == card2 and  # pylint: disable=chained-comparison
-                rules_split_to_num_hands >= 2 and split_table[card1 - 1, dealer1 - 1] and
+                rules_split_to_num_hands >= 2 and
+                split_table[int32(card1 - 1), int32(dealer1 - 1)] and
                 min_num_player_cards <= 2)
 
   def reward_after_dealer(player_total: int) -> float:
@@ -2371,6 +2380,7 @@ def simulate_hand(
         num_incomplete_hands += 1
       else:
         num_incomplete_hands -= 1
+        assert num_split_second_cards < SPLIT_SECOND_CARDS_SIZE
         split_second_cards[num_split_second_cards] = card
         num_split_second_cards += 1
     return num_split_second_cards
@@ -2428,11 +2438,14 @@ def simulate_hand(
   return reward, card_index
 
 
+# %%
+# print('\n'.join(map(repr, simulate_hand.overloads.keys())))
+
 # %% [markdown]
-# ### Simulate shoes
+# ### Simulation using CPU
 
 # %%
-@numba_njit()  # EFFORT=3 (inlining) compilation: ~18 s.
+@numba_njit()
 def simulate_shoes_helper(
     start_shoe_index: int, shoes: _NDArray, split_table: _NDArray, action_table: _NDArray,
     min_num_player_cards: int, rules_blackjack_payout: float, rules_hit_soft17: bool,
@@ -2454,8 +2467,8 @@ def simulate_shoes_helper(
     while True:
       reward, card_index = simulate_hand(
           shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
-          rules_resplit_aces, split_second_cards)
+          float(rules_blackjack_payout), rules_hit_soft17, rules_obo,
+          float(rules_split_to_num_hands), rules_resplit_aces, split_second_cards)
       shoe_played_hands += 1
       sum_rewards += reward
       sum_squared_rewards += reward * reward
@@ -2471,6 +2484,11 @@ def simulate_shoes_helper(
 
 
 # %%
+if 0:
+  print('\n'.join(map(repr, simulate_shoes_helper.overloads.keys())))  # (Run after notebook.)
+# (int64, Array(int64, 2, 'C', False, aligned=True), Array(bool, 2, 'C', False, aligned=True), Array(uint8, 7, 'C', False, aligned=True), int64, float64, bool, bool, float64, bool, int64, int64)
+
+# %%
 def simulate_shoes(start_shoe_index: int, shoes: _NDArray, rules: Rules, strategy: Strategy,
                    min_num_player_cards: int, hands_per_shoe: int) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
@@ -2484,7 +2502,7 @@ def simulate_shoes(start_shoe_index: int, shoes: _NDArray, rules: Rules, strateg
   #   strategy.attention are already encoded in `action_table`.
   return simulate_shoes_helper(
       start_shoe_index, shoes, split_table, action_table, min_num_player_cards,
-      rules.blackjack_payout, rules.hit_soft17, rules.obo, rules.split_to_num_hands,
+      float(rules.blackjack_payout), rules.hit_soft17, rules.obo, float(rules.split_to_num_hands),
       rules.resplit_aces, rules.cut_card, hands_per_shoe)
 
 
@@ -2513,133 +2531,12 @@ def test_simulate_single_shoe() -> None:
            (4, 1.5, 4.25))
 
 
-if 0:
-  test_simulate_single_shoe()
-
-
-# %%
-# # ??
-
-# %%
-@cuda.jit  # type: ignore[misc]
-def simulate_shoes_kernel(
-    start_shoe_index: int, shoes: _CudaArray, split_table: _CudaArray, action_table: _CudaArray,
-    min_num_player_cards: int, rules_blackjack_payout: float, rules_hit_soft17: bool,
-    rules_obo: bool, rules_split_to_num_hands: float, rules_resplit_aces: bool,
-    rules_cut_card: int, hands_per_shoe: int, result: _CudaArray) -> None:
-  """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
-  # pylint: disable=no-value-for-parameter, consider-using-enumerate
-  # assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
-  total_played_hands = 0
-  sum_rewards = 0.0
-  sum_squared_rewards = 0.0
-
-  thread_index = cuda.grid(1)
-  if thread_index >= len(shoes):
-    return
-
-  split_second_cards = cuda.local.array(SPLIT_SECOND_CARDS_SIZE, numba.int64)
-  index = thread_index
-  for index in range(len(shoes)):
-    shoe = shoes[index]
-    shoe_index = start_shoe_index + index
-    card_index = 0
-    shoe_played_hands = 0
-
-    while True:
-      reward, card_index = simulate_hand(
-          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
-          rules_resplit_aces, split_second_cards)
-      shoe_played_hands += 1
-      sum_rewards += reward
-      sum_squared_rewards += reward * reward
-      if hands_per_shoe > 0:
-        if shoe_played_hands >= hands_per_shoe:
-          break
-      elif card_index >= rules_cut_card:
-        break
-
-    total_played_hands += shoe_played_hands
-
-  result[:] = numba.float64(total_played_hands), sum_rewards, sum_squared_rewards
-
-
-# %%
-THREADS_PER_BLOCK = 128
-
-
-# %%
-def simulate_shoes_gpu(start_shoe_index: int, shoes: _NDArray, rules: Rules, strategy: Strategy,
-                       min_num_player_cards: int, hands_per_shoe: int) -> tuple[int, float, float]:
-  """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
-  assert start_shoe_index >= 0 and shoes.ndim == 2 and hands_per_shoe >= 0
-  rules2 = normalize_rules_for_probabilistic_analysis(rules)
-  # split_table, action_table = create_tables(rules2, strategy, quiet=True)
-  # d_split_table = cuda.to_device(split_table)
-  # d_action_table = cuda.to_device(action_table)
-  d_split_table, d_action_table = create_tables_cuda(rules2, strategy, quiet=True)
-  # Note that:
-  # - rules.num_decks is already encoded in shoes.shape[1].
-  # - hit_split_aces, double_split_aces are already encoded in `split_table`.
-  # - double_min_total, double_after_split, late_surrender, strategy.first_actions,
-  #   strategy.attention are already encoded in `action_table`.
-  num_threads = len(shoes)
-  blocks = math.ceil(num_threads / THREADS_PER_BLOCK)
-  # hh.show(split_table.size, action_table.size)  # split_table.size = 100, action_table.size = 144000
-  d_shoes = cuda.to_device(shoes)
-  d_result = cuda.to_device(np.zeros(3, np.float64))
-  simulate_shoes_kernel[blocks, THREADS_PER_BLOCK](
-      start_shoe_index, d_shoes, d_split_table, d_action_table, min_num_player_cards,
-      rules.blackjack_payout, rules.hit_soft17, rules.obo, rules.split_to_num_hands,
-      rules.resplit_aces, rules.cut_card, hands_per_shoe, d_result)
-  float_total_played_hands, sum_rewards, sum_squared_rewards = d_result.copy_to_host()
-  return int(float_total_played_hands), sum_rewards, sum_squared_rewards
-
-
-# %%
-def test_simulate_single_shoe_gpu() -> None:
-  """Debug simulation on small shoe."""
-  deck = np.array(CARD_VALUES).repeat(NUM_SUITS)
-  np.random.default_rng(4).shuffle(deck)
-  shoes = deck[None]
-  print(shoes)
-  min_num_player_cards = 0
-  hands_per_shoe = 4
-  # [[ 5  3 10 10 10 10 10  7  7  1 10 10  3  9  4  5  5 10 10  2  9  9  3 10
-  #    7  6 10  6 10  8  1  9 10  8  7  4  3  6  2  8  6 10  5  8 10  1  2 10
-  #    2  1  4  4]]
-  # rewards=[1.0, 0.0, 1.5, -1.0]; sum=1.5; sum_squared=4.25
-  check_eq(simulate_shoes_gpu(0, shoes, Rules.make(num_decks=1, cut_card=0), Strategy(),
-                              min_num_player_cards, hands_per_shoe),
-           (4, 1.5, 4.25))
-
-
 if 1:
-  test_simulate_single_shoe_gpu()
+  test_simulate_single_shoe()  # ~12 s for jit compilation.
 
 
 # %%
-def report_cuda_kernel_properties(function: Callable[..., Any]) -> None:
-  """Show memory attributes of CUDA kernel function."""
-  PROPERTIES = 'const_mem_size local_mem_per_thread max_threads_per_block regs_per_thread shared_mem_per_block'.split()
-  for property_name in PROPERTIES:
-    (value,) = getattr(function, 'get_' + property_name)().values()
-    print(f'{property_name} = {value}')
-
-
-# %%
-report_cuda_kernel_properties(simulate_shoes_kernel)
-
-
-# %%
-# simulate_shoes = simulate_shoes_gpu  # ??
-
-# %%
-# # ??
-
-# %%
-def get_num_shoes_per_seed(rules: Rules) -> int:
+def get_shoes_per_seed(rules: Rules) -> int:
   """Return an efficient number of shoes to consider per batch."""
   return {1.0: 2_000, 2.0: 500}.get(rules.num_decks, 200)
 
@@ -2659,13 +2556,13 @@ def simulate_many_shoes(rules: Rules, strategy: Strategy, min_num_player_cards: 
   sum_rewards = 0.0
   sum_squared_rewards = 0.0
   total = stop_shoe_index - start_shoe_index
-  num_shoes_per_seed = get_num_shoes_per_seed(rules)
+  shoes_per_seed = get_shoes_per_seed(rules)
 
   with tqdm_stdout(total=total, desc='sim', disable=quiet) as progress_bar:
     start = start_shoe_index
     while start < stop_shoe_index:
-      seed_index = start // num_shoes_per_seed * num_shoes_per_seed
-      num_batch_shoes = min(stop_shoe_index - seed_index, num_shoes_per_seed)
+      seed_index = start // shoes_per_seed * shoes_per_seed
+      num_batch_shoes = min(stop_shoe_index - seed_index, shoes_per_seed)
       shoes = _global_create_shoes(num_batch_shoes, seed_index)
       shoes = shoes[start - seed_index:]
       shoe_played_hands, shoe_sum_rewards, shoe_sum_squared_rewards = simulate_shoes(
@@ -2677,6 +2574,18 @@ def simulate_many_shoes(rules: Rules, strategy: Strategy, min_num_player_cards: 
       start += len(shoes)
 
   return played_hands, sum_rewards, sum_squared_rewards
+
+
+# %%
+def get_hands_per_shoe(cut_card: int, shoe_size: int) -> int:
+  """Return the desired number of hands to simulate per shoe, or zero if until end of shoe."""
+  # If cut_card == 0, we should reshuffle the shoe after each hand.  For efficiency, we instead
+  # consider a larger (but fixed) number of hands; this does not affect the computed reward.
+  return int(  # Cast to unconfuse mypy.
+      0 if cut_card > 0 else
+      shoe_size // 12 if shoe_size < 80 else
+      shoe_size // DECK_SIZE * 6
+  )
 
 
 # %%
@@ -2697,12 +2606,7 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
   global _global_create_shoes  # pylint: disable=global-statement, invalid-name
   _global_create_shoes = create_shoes
   shoe_size = create_shoes(1, 0).shape[1]
-  # If cut_card == 0, we should reshuffle the shoe after each hand.  For efficiency, we instead
-  # consider a larger (but fixed) number of hands; this does not affect the computed reward.
-  hands_per_shoe = (hands_per_shoe if hands_per_shoe > 0 else
-                    0 if rules.cut_card > 0 else
-                    shoe_size // 12 if shoe_size < 80 else
-                    shoe_size // DECK_SIZE * 6)
+  hands_per_shoe = hands_per_shoe or get_hands_per_shoe(rules.cut_card, shoe_size)
 
   # We estimate the number of shoes necessary to play out `num_hands`.
   approx_hands_per_shoe = (hands_per_shoe if hands_per_shoe != 0 else
@@ -2714,8 +2618,6 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
   min_work_per_task = 800_000  # Found empirically.
   # The work of shuffling the shoe compares with that of playing a hand.
   estimated_work = num_hands + num_shoes
-  if simulate_shoes == simulate_shoes_gpu:  # ??
-    parallel = False
   if parallel is None:
     sufficient_work = estimated_work >= 2 * min_work_per_task
     parallel = multiprocessing_is_available() and sufficient_work
@@ -2726,6 +2628,8 @@ def run_simulations(rules: Rules, strategy: Strategy, num_hands: int, create_sho
   # Memoize the simulation tables now (with progress bar), prior to forking and chunking.
   rules2 = normalize_rules_for_probabilistic_analysis(rules)
   _ = create_tables(rules2, strategy, quiet=quiet)
+  # Ensure numba code is jitted prior to forking.
+  _ = simulate_many_shoes(rules, strategy, min_num_player_cards, hands_per_shoe, 0, 1, True)
 
   if parallel:
     num_tasks = max(estimated_work // min_work_per_task, 1)
@@ -2806,54 +2710,369 @@ if 0:
 # (0.0013981278452611797, 206647769, 1.1426474817702177)
 
 # %%
-if 0:  # ??
+if 0:
   hh.print_time(lambda: monte_carlo_house_edge(
       Rules.make(), Strategy(), 10**9, quiet=True), max_time=25.0)
-# For EFFORT=2 (run twice to cache probabilistic values):
-# With numba inline='always':    6.3 s
-# Without numba inline='always': 7.3 s
+# For EFFORT=2 (run twice to cache probabilistic values) (inline='always'): ~7.0 s.
 
 
 # %%
-def experiment_num_shoes_per_seed(rules: Rules, num_hands: int, num_shoes_per_seed: int) -> None:
+def experiment_shoes_per_seed(rules: Rules, num_hands: int, shoes_per_seed: int) -> None:
   """Report the simulation time for specified parameters."""
-  assert num_hands > 0 and num_shoes_per_seed > 0
+  assert num_hands > 0 and shoes_per_seed > 0
 
   def new_func(unused_rules: Rules) -> int:
-    return num_shoes_per_seed
+    return shoes_per_seed
 
-  with unittest.mock.patch(f'{__name__}.get_num_shoes_per_seed', new_func):
+  with unittest.mock.patch(f'{__name__}.get_shoes_per_seed', new_func):
     elapsed = hh.get_time(lambda: monte_carlo_house_edge(rules, Strategy(), num_hands, quiet=True),
                           max_time=5.0)
     print(f'# num_decks={rules.num_decks}  {num_hands=:<13_}'
-          f' {num_shoes_per_seed=:<6_} {elapsed:.03f} s')
+          f' {shoes_per_seed=:<6_} {elapsed:.03f} s')
 
 
-def experiment_fastest_num_shoes_per_seed() -> None:
-  """Run experiments to find fast settings for `get_num_shoes_per_seed`."""
+def experiment_fastest_shoes_per_seed() -> None:
+  """Run experiments to find fast settings for `get_shoes_per_seed`."""
   for num_decks in [6, 4, 2, 1]:
     for num_hands in [10_000_000, 100_000_000]:
-      for num_shoes_per_seed in [5, 100, 200, 500, 1_000, 2_000]:
+      for shoes_per_seed in [5, 100, 200, 500, 1_000, 2_000]:
         rules = Rules.make(num_decks=num_decks)
-        experiment_num_shoes_per_seed(rules, num_hands, num_shoes_per_seed)
+        experiment_shoes_per_seed(rules, num_hands, shoes_per_seed)
       print()
 
 
 if 0:
-  experiment_fastest_num_shoes_per_seed()
+  experiment_fastest_shoes_per_seed()
 
 # %%
 # Using parallelism introduces a ~10x speedup (beyond the 30x speedup of numba jitting);
 # timings are obtained on an AMD Ryzen 9 5900X 12-Core Processor, 3701 MHz.
-if 0:
+if 1:
   measure_parallelism_speedup = functools.partial(
       monte_carlo_house_edge, Rules.make(num_decks=1), Strategy(), 50_000_000, quiet=True)
   measure_parallelism_speedup(parallel=False)  # Initialize memoization.
   hh.print_time(lambda: measure_parallelism_speedup(parallel=False))
   hh.print_time(lambda: measure_parallelism_speedup(parallel=True))
 # (Note: the last number often goes up by 1.5x until we restart the kernel.)
-# 5.36 s
-# 666 ms
+# ~5.5 s.
+# ~640 ms.
+
+# %% [markdown]
+# ### Simulation using CUDA
+
+# %%
+# Make action_table.size=144000 fit into 64K constant memory??
+
+# %%
+# v = min(int32(float32(random_uint32) * float32(13.0 / 2**32)) + 1, 10)
+np.int32(np.float32(2**32 - 129) * np.float32(13.0 / 2**32))
+
+# %%
+np.int32(np.float32(2**32 + 257) * np.float32((1.0 - 1e-7) * 13.0 / 2**32))
+
+
+# %%
+@cuda.jit(fastmath=True)  # type: ignore[misc]
+def create_and_simulate_shoes_cuda(
+    rng_states: _CudaArray, shoes_per_thread: int, shoe_size: int, start_shoe_index: int,
+    split_table: _CudaArray, action_table: _CudaArray, min_num_player_cards: int,
+    rules_num_decks_inf: bool, rules_blackjack_payout: float, rules_hit_soft17: bool,
+    rules_obo: bool, rules_split_to_num_hands: float, rules_resplit_aces: bool,
+    rules_cut_card: int, hands_per_shoe: int, global_result: _CudaArray) -> None:
+  """Compute `(played_hands, sum_rewards, sum_squared_rewards)` over all hands."""
+  # pylint: disable=no-value-for-parameter, consider-using-enumerate
+  # pylint: disable=comparison-with-callable, too-many-function-args, too-many-branches
+  int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
+  assert split_table.ndim == 2 and action_table.ndim == 7
+  assert split_table.itemsize == 1 and action_table.itemsize == 1
+  shoe_size, min_num_player_cards = int32(shoe_size), int32(min_num_player_cards)
+  rules_cut_card, hands_per_shoe = int32(rules_cut_card), int32(hands_per_shoe)
+  # threads_per_block = cuda.blockDim.x
+  thread_index = cuda.grid(1)
+  if thread_index >= len(rng_states):
+    return
+
+  thread_id = cuda.threadIdx.x  # Index within block.
+  block_shoe_dynamic = cuda.shared.array(0, np.int8)  # (threads_per_block, shoe_size).
+  shoe = block_shoe_dynamic[thread_id * shoe_size : (thread_id + 1) * shoe_size]
+  split_second_cards = cuda.local.array(SPLIT_SECOND_CARDS_SIZE, np.int8)
+
+  num_played_hands = int32(0)
+  sum_rewards = float32(0.0)
+  sum_squared_rewards = float32(0.0)
+
+  if not rules_num_decks_inf:
+    # Create the unshuffled shoe.
+    num_of_each_card = int32(shoe_size // 13)
+    card_index = int32(0)
+    for card_value in CARD_VALUES:
+      for _ in range(num_of_each_card):
+        shoe[card_index] = card_value
+        card_index += 1
+
+  # Load the random-number generator state into registers.
+  rng = rng_states[thread_index]
+  s0, s1, s2, s3 = uint32(rng['s0']), uint32(rng['s1']), uint32(rng['s2']), uint32(rng['s3'])
+
+  # Perform iterations of shuffling the shoe and simulating its played hands.
+  for local_shoe_index in range(int32(shoes_per_thread)):
+    shoe_index = start_shoe_index + thread_index * shoes_per_thread + local_shoe_index
+
+    if rules_num_decks_inf:
+      for i in range(int32(shoe_size)):
+        random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
+        random_uint32 = uint32(random_uint32)
+        s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
+        # value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
+        # shoe[i] = min(int32(float32(value_in_unit_interval * 13)) + 1, 10)
+        v = int32(float32(random_uint32) * float32((1.0 - 1e-7) * 13.0 / 2**32))
+        shoe[i] = min(int32(v + 1), int32(10))
+
+    else:
+      # Apply Fisher-Yates shuffle to the current shoe.
+      for i in range(int32(shoe_size - 1), int32(0), int32(-1)):
+        # random_uint32 = cuda.random.xoroshiro128p_next(rng_states, thread_index)
+        random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
+        random_uint32 = uint32(random_uint32)
+        s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
+        if 0:
+          j = random_uint32 % uint32(i + 1)  # Remainder is somewhat expensive in CUDA.
+        else:
+          # In `random_uint32`, the msb are more random than the lsb, so float32 mul is better.
+          value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
+          j = uint32(float32(value_in_unit_interval * float32(i + 1)))
+        shoe[i], shoe[j] = shoe[j], shoe[i]
+
+    # Simulate playing hands on shoe.
+    card_index = int32(0)
+    shoe_played_hands = int32(0)
+
+    while True:
+      reward, card_index = simulate_hand(
+          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
+          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
+          rules_resplit_aces, split_second_cards)
+      reward, card_index = float32(reward), int32(card_index)
+      shoe_played_hands += 1
+      sum_rewards += reward
+      sum_squared_rewards += float32(reward * reward)
+      if hands_per_shoe > 0:
+        if shoe_played_hands >= hands_per_shoe:
+          break
+      elif card_index >= rules_cut_card:
+        break
+
+    num_played_hands += shoe_played_hands
+
+  # First accumulate results per-block, then accumulate into the global results.
+  NUM_RESULTS = 3  # (played_hands, sum_rewards, sum_squared_rewards)
+  shared_result = cuda.shared.array(NUM_RESULTS, np.float64)  # Per-block intermediate result.
+  if thread_id == 0:
+    shared_result[:] = 0
+  cuda.syncthreads()
+
+  # Each thread adds its local results to shared memory.
+  cuda.atomic.add(shared_result, 0, numba.float64(num_played_hands))
+  cuda.atomic.add(shared_result, 1, sum_rewards)
+  cuda.atomic.add(shared_result, 2, sum_squared_rewards)
+  cuda.syncthreads()
+
+  if thread_id == 0:
+    for i in range(shared_result.size):
+      cuda.atomic.add(global_result, i, shared_result[i])
+
+
+# %%
+def get_shoe_size_cuda(num_decks: float) -> int:
+  """Return the size of the shoe used to simulate hands given `num_decks`."""
+  if num_decks == math.inf:
+    return SHOE_SIZE_FOR_INFINITE_DECKS_CUDA
+  return int(num_decks) * DECK_SIZE
+
+
+# %%
+def get_threads_per_block(shoe_size: int) -> int:
+  """Return the number of threads per block to enable the cuda kernel to fit."""
+  # return {1: 512, 2: 256, 3: 128, 4: 128, 6: 64, 8: 64}[int(num_decks)]  ??
+  return (
+      512 if shoe_size <= 52 else
+      256 if shoe_size <= 2 * 52 else
+      128 if shoe_size <= 4 * 52 else
+      64
+  )
+
+
+# %%
+# To determine the optimal threads_per_block:
+# # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=1), Strategy(), 10**8)  # ~200 ms.
+
+# %%
+def simulate_shoes_cuda(
+    num_shoes: int, start_shoe_index: int, rules: Rules, strategy: Strategy,
+    min_num_player_cards: int, shoes_per_thread: int, hands_per_shoe: int,
+) -> tuple[int, float, float]:
+  """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
+  assert num_shoes >= 0 and start_shoe_index >= 0 and hands_per_shoe >= 0
+  shoe_size = get_shoe_size_cuda(rules.num_decks)
+  threads_per_block = get_threads_per_block(shoe_size)
+
+  rules2 = normalize_rules_for_probabilistic_analysis(rules)
+  d_split_table, d_action_table = create_tables_cuda(rules2, strategy)
+  # hh.show(d_split_table.dtype, d_action_table.dtype, d_split_table.size, d_action_table.size)
+  # bool, uint8, 100, 144000.
+  assert d_split_table.nbytes == d_split_table.size
+
+  num_threads = math.ceil(num_shoes / shoes_per_thread)
+  blocks = math.ceil(num_threads / threads_per_block)
+
+  seed = start_shoe_index
+  # d_rng_states = cuda.random.create_xoroshiro128p_states(num_threads, seed)
+  d_rng_states = random32.create_xoshiro128p_states(num_threads, seed)
+
+  d_result = cuda.to_device(np.zeros(3, np.float64))
+  dynamic_shared_memory_size = threads_per_block * shoe_size
+
+  # hh.show(num_threads, blocks, threads_per_block, dynamic_shared_memory_size)
+  create_and_simulate_shoes_cuda[blocks, threads_per_block, 0, dynamic_shared_memory_size](
+      d_rng_states, shoes_per_thread, shoe_size, start_shoe_index,
+      d_split_table, d_action_table, min_num_player_cards, rules.num_decks == math.inf,
+      rules.blackjack_payout, rules.hit_soft17, rules.obo, rules.split_to_num_hands,
+      rules.resplit_aces, rules.cut_card, hands_per_shoe, d_result)
+
+  float_total_played_hands, sum_rewards, sum_squared_rewards = d_result.copy_to_host()
+  return int(float_total_played_hands), sum_rewards, sum_squared_rewards
+
+
+# %%
+def test_simulate_shoes_cuda() -> None:
+  """Check simulation of shoes on CUDA."""
+  num_shoes = 10_000_000
+  shoes_per_thread = 100
+  hands_per_shoe = 0
+  played_hands, sum_rewards, sum_squared_rewards = simulate_shoes_cuda(
+      num_shoes, 0, Rules.make(num_decks=1, late_surrender=False), Strategy(),
+      0, shoes_per_thread, hands_per_shoe)
+  assert 4.5 < played_hands / num_shoes < 5.6
+  expected_house_edge = 0.00170  # 0.170%.
+  observed_house_edge = -sum_rewards / played_hands
+  # hh.show(played_hands, expected_house_edge, observed_house_edge)
+  assert abs(observed_house_edge - expected_house_edge) <= 0.0005, observed_house_edge
+  rms_reward = (sum_squared_rewards / played_hands) ** 0.5
+  assert 1.0 < rms_reward < 1.3, rms_reward
+
+
+if 1:
+  test_simulate_shoes_cuda()  # ~9s jit.
+
+
+# %%
+def write_numba_assembly_code(function: Any, filename: str) -> None:
+  """Write the asm or ptx code to an output file."""
+  (asm_or_ptx,) = function.inspect_asm().values()
+  pathlib.Path(filename).write_text(asm_or_ptx, encoding='utf-8')
+
+
+# %%
+def report_cuda_kernel_properties(function: Callable[..., Any]) -> None:
+  """Show memory attributes of CUDA kernel function."""
+  PROPERTIES = 'const_mem_size local_mem_per_thread max_threads_per_block regs_per_thread shared_mem_per_block'.split()
+  for property_name in PROPERTIES:
+    (value,) = getattr(function, 'get_' + property_name)().values()
+    print(f'{property_name} = {value}')
+
+
+# %%
+if cuda.is_available():
+  write_numba_assembly_code(create_and_simulate_shoes_cuda, 'create_and_simulate_shoes.ptx')
+  report_cuda_kernel_properties(create_and_simulate_shoes_cuda)
+
+
+# %%
+def monte_carlo_house_edge_cuda(
+    rules: Rules, strategy: Strategy, num_hands: int
+) -> tuple[float, int, float]:
+  """Return `(house_edge, played_hands, house_edge_sdv)` computed by simulation of `num_hands`."""
+  assert num_hands > 0
+  shoe_size = get_shoe_size_cuda(rules.num_decks)
+  threads_per_block = get_threads_per_block(shoe_size)
+  hands_per_shoe = get_hands_per_shoe(rules.cut_card, shoe_size)
+  start_shoe_index = 0
+  assert strategy.attention in (Attention.TOTAL_OF_CARDS, Attention.INITIAL_CARDS_AND_TOTAL)
+  # We estimate the number of shoes necessary to play out `num_hands`.
+  approx_hands_per_shoe = (hands_per_shoe if hands_per_shoe != 0 else
+                           math.ceil(rules.cut_card / AVERAGE_CARDS_PER_HAND))
+  # Ideally, we need a better estimate when rules.cut_card is small (e.g. 16).
+  num_shoes = math.ceil(num_hands / approx_hands_per_shoe)
+
+  device = cuda.get_current_device()
+  # Target enough threads for about THREAD_PARALLELISM blocks per streaming multiprocessor (SM).
+  THREAD_PARALLELISM = 4
+  target_num_threads = device.MULTIPROCESSOR_COUNT * threads_per_block * THREAD_PARALLELISM
+  shoes_per_thread = max(1, num_shoes // target_num_threads)
+  # print(f'{approx_hands_per_shoe=} {num_shoes=:_} {target_num_threads=:_} {shoes_per_thread=}')
+
+  min_num_player_cards = 0
+  played_hands, sum_rewards, sum_squared_rewards = simulate_shoes_cuda(
+      num_shoes, start_shoe_index, rules, strategy, min_num_player_cards,
+      shoes_per_thread, hands_per_shoe)
+
+  reward_average = sum_rewards / played_hands
+  reward_sdv = (math.nan if played_hands <= 1 else
+                (max(sum_squared_rewards - sum_rewards**2 / played_hands, 0.0)
+                 / (played_hands - 1))**0.5)
+
+  house_edge = -reward_average
+  return house_edge, played_hands, reward_sdv
+
+
+# %%
+if 0:
+  print('Timing:')
+  # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=1), Strategy(), 10**8)  # ~90-150 ms.
+  # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=2), Strategy(), 10**8)  # ~60-140 ms.
+  # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=4), Strategy(), 10**8)  # ~160-200 ms.
+  # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=6), Strategy(), 10**8)  # ~280-330 ms.
+  # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=8), Strategy(), 10**8)  # ~260-340 ms.
+
+
+# %%
+def test_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> None:
+  """Verify that house edge results match the CPU implementation."""
+  rules = Rules.make(num_decks=num_decks, late_surrender=False)
+  num_hands = [10**8, 10**9, 10**10, 10**11, 10**12][EFFORT]
+  _ = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands // 10)  # Ensure jit.
+  start_time = time.perf_counter_ns()
+  house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands)
+  _ = reward_sdv
+  elapsed_time = (time.perf_counter_ns() - start_time) / 10**9
+  hands_per_s = played_hands / elapsed_time
+  print(f'house_edge = {house_edge * 100:.3f}%  {played_hands = :15,}  {hands_per_s = :,.0f}')
+  assert abs(house_edge - expected_edge) < 5.0 / num_hands**0.5, (house_edge, expected_edge)
+
+
+test_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.00170)
+test_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.00460)
+test_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.00597)
+test_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.00730)
+
+# %%
+# With EFFORT=2:
+# house_edge = 0.170%  played_hands =  10,262,864,462  hands_per_s = 878,765,666
+# house_edge = 0.457%  played_hands =   9,699,764,254  hands_per_s = 963,256,637
+# house_edge = 0.597%  played_hands =   9,972,583,967  hands_per_s = 568,434,666
+# house_edge = 0.731%  played_hands =  10,000,093,200  hands_per_s = 880,473,281
+#
+# analyze_number_of_decks(Rules.make(late_surrender=False))
+# Rules(late_surrender=False) EFFORT=3
+# ndecks=1   prob~ 0.044% (10s)  sim: 0.168% ±0.002%(81s)   wiz: 0.159%* wiki: 0.170%
+# ndecks=2   prob~ 0.392% (37s)  sim: 0.459% ±0.002%(63s)   wiz: 0.457%  wiki: 0.460%
+# ndecks=4   prob~ 0.562% (47s)  sim: 0.591% ±0.002%(75s)   wiz: 0.597%* wiki: 0.600%+
+# ndecks=inf prob: 0.731% (33s)  sim: 0.727% ±0.002%(63s)
+
+# %%
+# incorporate into rest of code ??
+# define monte_carlo_hand_cuda() as well ??
+# and run_simulations_all_cut_cards_cuda() ??
 
 # %% [markdown]
 # ### Simulate all cut-cards
@@ -2890,8 +3109,8 @@ def simulate_shoes_all_cut_cards_nonjit(
     while card_index < len(shoe):
       reward, card_index2 = simulate_hand(
           shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
-          rules_resplit_aces, split_second_cards)
+          float(rules_blackjack_payout), rules_hit_soft17, rules_obo,
+          float(rules_split_to_num_hands), rules_resplit_aces, split_second_cards)
       output_played_hands[card_index] += 1
       output_rewards[card_index] += reward
       card_index = card_index2
@@ -2915,14 +3134,14 @@ def simulate_many_shoes_all_cut_cards(
   played_hands = np.zeros(shoe_size, np.int64)  # [0] is cut_card == 1
   rewards = np.zeros(shoe_size, np.float64)
   total = stop_shoe_index - start_shoe_index
-  num_shoes_per_seed = get_num_shoes_per_seed(rules)
+  shoes_per_seed = get_shoes_per_seed(rules)
   create_shoes = default_shoes_creator(rules)
 
   with tqdm_stdout(total=total, desc='sim_cut', disable=quiet, leave=True) as progress_bar:
     start = start_shoe_index
     while start < stop_shoe_index:
-      seed_index = start // num_shoes_per_seed * num_shoes_per_seed
-      num_batch_shoes = min(stop_shoe_index - seed_index, num_shoes_per_seed)
+      seed_index = start // shoes_per_seed * shoes_per_seed
+      num_batch_shoes = min(stop_shoe_index - seed_index, shoes_per_seed)
       shoes = create_shoes(num_batch_shoes, seed_index)
       shoes = shoes[start - seed_index:]
       rules_args = (rules.blackjack_payout, rules.hit_soft17, rules.obo,
@@ -2959,6 +3178,8 @@ def run_simulations_all_cut_cards(
 
   # Memoize the simulation tables now (with progress bar), prior to forking and chunking.
   _ = create_tables(rules, strategy, quiet=quiet)
+  # Ensure numba code is jitted prior to forking.
+  _ = simulate_many_shoes_all_cut_cards(rules, strategy, 0, 1, True)
 
   if parallel:
     shoes_per_task = math.ceil(num_shoes / multiprocessing.cpu_count())
@@ -5835,9 +6056,9 @@ hh.show_notebook_cell_top_times()
 #     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
 #   DeepNote: ~550 s with 20% num_hands; max 5 GB mem; table of contents; copies GitHub; must login.
-# EFFORT=2: ~2_450 s (+ ~160 s cut_card_analysis_results)
+# EFFORT=2: ~2_450 s (+ ~160 s cut_card_analysis_results) (10.5 GiB)
 #      Colab: timed out.
-#     Kaggle: ~24_000 s (11.6 GiB).
+#     Kaggle: ~24_000 s
 # EFFORT=3: ~25_000 s (~8 hrs) (+ ~11_000 s cut_card_analysis_results)
 # EFFORT=4: ~40 hrs or more.
 

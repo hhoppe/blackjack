@@ -4,6 +4,10 @@
 /Other
 /blackjack_other*
 /tmp
+__pycache__/
 
 /data/Blackjack House Edge - Wizard of Odds.html
 /data/*_hand_calc_Rules*.pickle
+
+*.ptx
+*.asm
