@@ -131,6 +131,7 @@ import numba
 from numba import cuda
 import numba.cuda.random
 import numpy as np
+import numpy.typing
 import tqdm
 import random32
 
@@ -162,7 +163,7 @@ _F = typing.TypeVar('_F', bound=Callable[..., Any])
 _T = typing.TypeVar('_T')
 
 # %%
-_NDArray = np.ndarray[Any, Any]
+_NDArray = numpy.typing.NDArray[Any]
 _CudaArray = Any  # cuda.cudadrv.devicearray.DeviceNDArray
 
 # %%
@@ -2349,7 +2350,7 @@ def simulate_hand(
     """Return a card value retrieved from the shoe."""
     nonlocal card_index
     index = uint32(card_index)
-    card_index += 1
+    card_index = uint32(card_index + 1)
     if index >= len(shoe):
       index = uint32(end_of_shoe_reshuffle(index, shoe_index, hand_start_card_index))
     card: Card = shoe[index]
@@ -2388,14 +2389,14 @@ def simulate_hand(
     return (float32(1.0) if player_total > dealer_total else
             float32(0.0) if player_total == dealer_total else float32(-1.0))
 
-  def create_split_hands(card1: Card) -> int:
+  def create_split_hands(card1: Card) -> numba.uint32:
     """Return series of second cards after iteratively splitting."""
     # (Numba: yield is not yet supported within closure; replacing List by np.array() not helpful.)
-    num_incomplete_hands = 2  # Initially we have 2 matching cards.
-    num_split_second_cards = 0
+    num_incomplete_hands = uint32(2)  # Initially we have 2 matching cards.
+    num_split_second_cards = uint32(0)
     while num_incomplete_hands > 0:
       card = get_card()
-      num_split_hands = num_split_second_cards + num_incomplete_hands
+      num_split_hands = uint32(num_split_second_cards + num_incomplete_hands)
       split_allowed = (num_split_hands < rules_split_to_num_hands and
                        (card1 != 1 or rules_resplit_aces))
       if card == card1 and split_allowed:
@@ -2417,7 +2418,7 @@ def simulate_hand(
     player_total, player_soft = numba_combine_two_cards(card1, card2)
 
     while True:
-      force_hit = int32(int32(card_index - hand_start_card_index) - 2) < min_num_player_cards
+      force_hit = uint32(card_index - hand_start_card_index) < uint32(min_num_player_cards + 2)
       action_value = (
           Action.HIT.value if force_hit else
           action_table_slice[uint32(is_first_action), uint32(player_total - 4), uint32(player_soft)]
@@ -2450,7 +2451,7 @@ def simulate_hand(
 
   if have_split:
     reward = float32(0.0)
-    num_split_second_cards = create_split_hands(card1)
+    num_split_second_cards = uint32(create_split_hands(card1))
     for card2 in split_second_cards[:num_split_second_cards]:
       reward += float32(simulate_potentially_split_hand())
 
@@ -2826,18 +2827,18 @@ def create_and_simulate_shoes_cuda(
   shoe = block_shoe_dynamic[thread_id * shoe_size : (thread_id + 1) * shoe_size]
   split_second_cards = cuda.local.array(SPLIT_SECOND_CARDS_SIZE, np.int8)
 
-  num_played_hands = int32(0)
+  num_played_hands = uint32(0)
   sum_rewards = float32(0)
   sum_squared_rewards = float32(0)
 
   if not rules_num_decks_inf:
     # Create the unshuffled shoe.
     num_of_each_card = int32(shoe_size // 13)
-    card_index = int32(0)
+    card_index = uint32(0)
     for card_value in CARD_VALUES:
       for _ in range(num_of_each_card):
         shoe[card_index] = card_value
-        card_index += 1
+        card_index = uint32(card_index + 1)
 
   # Load the random-number generator state into registers.
   rng = rng_states[thread_index]
@@ -2884,16 +2885,16 @@ def create_and_simulate_shoes_cuda(
         i = uint32(i - 1)
 
     # Simulate playing hands on shoe.
-    card_index = int32(0)
-    shoe_played_hands = int32(0)
+    card_index = uint32(0)
+    shoe_played_hands = uint32(0)
 
     while True:
       reward, card_index = simulate_hand(
           shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
           rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
           rules_resplit_aces, split_second_cards)
-      reward, card_index = float32(reward), int32(card_index)
-      shoe_played_hands += 1
+      reward, card_index = float32(reward), uint32(card_index)
+      shoe_played_hands = uint32(shoe_played_hands + 1)
       sum_rewards += reward
       sum_squared_rewards += float32(reward * reward)
       if hands_per_shoe > 0:
@@ -2902,13 +2903,13 @@ def create_and_simulate_shoes_cuda(
       elif card_index >= rules_cut_card:
         break
 
-    num_played_hands += shoe_played_hands
+    num_played_hands = uint32(num_played_hands + shoe_played_hands)
 
   # First accumulate results per-block, then accumulate into the global results.
   NUM_RESULTS = 3  # (played_hands, sum_rewards, sum_squared_rewards)
   shared_result = cuda.shared.array(NUM_RESULTS, np.float64)  # Per-block intermediate result.
   if thread_id == 0:
-    shared_result[:] = 0
+    shared_result[:] = 0.0
   cuda.syncthreads()
 
   # Each thread adds its local results to shared memory.
@@ -2960,7 +2961,8 @@ def simulate_shoes_cuda(
   threads_per_block = get_threads_per_block(shoe_size)
 
   rules2 = normalize_rules_for_probabilistic_analysis(rules)
-  d_split_table, d_action_table = create_tables_cuda(rules2, strategy)
+  with hh.timing('create_tables_cuda', enabled=False):
+    d_split_table, d_action_table = create_tables_cuda(rules2, strategy)
   # hh.show(d_split_table.dtype, d_action_table.dtype, d_split_table.size, d_action_table.size)
   # bool, uint8, 100, 144000.
   assert d_split_table.nbytes == d_split_table.size
@@ -3021,9 +3023,9 @@ if cuda.is_available():
 
 
 # %%
-def write_numba_assembly_code(function: Any, filename: str) -> None:
+def write_numba_assembly_code(function: Callable[..., Any], filename: str) -> None:
   """Write the asm or ptx code for a numba function to an output file."""
-  (asm_or_ptx,) = function.inspect_asm().values()
+  (asm_or_ptx,) = function.inspect_asm().values()  # type: ignore[attr-defined]
   pathlib.Path(filename).write_text(asm_or_ptx, encoding='utf-8')
 
 
@@ -3105,7 +3107,8 @@ def test_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> 
   """Verify that house edge results match the CPU implementation."""
   rules = Rules.make(num_decks=num_decks, late_surrender=False)
   num_hands = [10**8, 10**9, 10**10, 10**11, 10**12][EFFORT]
-  _ = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands // 20, quiet=True)  # Ensure jit.
+  # Both (1) ensure jit and (2) cache the action_table.
+  _ = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands // 20, quiet=True)
   start_time = time.perf_counter_ns()
   house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands)
   del reward_sdv
@@ -3117,11 +3120,11 @@ def test_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> 
 
 # %%
 if cuda.is_available():
-  print(f'With {EFFORT=}:')
-  test_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001702)
-  test_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004577)
-  test_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005957)
-  test_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007313)
+  print(f'# With {EFFORT=}:')
+  test_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001703)
+  test_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004575)
+  test_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005951)
+  test_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007314)
 
 # %%
 # With EFFORT=3:
@@ -5527,6 +5530,14 @@ if EFFORT >= 2:
 
 # %% [markdown]
 # ### Composition-dep. strategy
+
+# %% [markdown]
+# Implementation note: for the simulation results below, the simulation strategy is restricted to `Attention.INITIAL_CARDS_AND_TOTAL` (rather than `Attention.HAND_AND_NUM_PRIOR_SPLITS`),
+# so the simulation results are less accurate.
+#
+# Moreover, the construction of the `action_table` prior to simulation often needs to recalculate
+# new probabilities based on the altered strategy,
+# and this step can account for more than half of the reported `sim` times.
 
 # %% [markdown]
 # - Because the 9D tables used by WizardOfOdds are computed for the case of a
