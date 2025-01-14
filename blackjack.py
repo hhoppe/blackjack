@@ -143,7 +143,7 @@ def omit_cell_output() -> None:
 
 # %%
 # To archive the notebook, run with value 2.
-EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 2))
+EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 3))
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at lowest precision (~50 s).
 - 1: Fast subset of experiments, at low precision (~100 s).
@@ -2311,15 +2311,23 @@ def create_tables_cuda(rules: Rules, strategy: Strategy) -> tuple[_CudaArray, _C
 # ### Simulate a hand
 
 # %%
+def get_int_split_to_num_hands(rules: Rules) -> int:
+  """Return split_to_num_hands converted to an integer."""
+  if rules.split_to_num_hands == math.inf:
+    return 100  # Some large number.
+  return int(rules.split_to_num_hands)
+
+
+# %%
 @numba_njit()
 def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: int) -> int:
   """Return a new card index resulting from mid-hand reshuffling past the end of the shoe.
   In the rare case that the shoe is exhausted (e.g., due to splits and many small cards), a casino
   would reshuffle the discard pile.  We emulate this by jumping to new locations within the shoe
   (minus the tail cards in the current hand) using pseudorandom offsets based on shoe_index."""
-  int32 = numba.int32
+  uint32, uint64 = numba.uint32, numba.uint64
   random_offset = index * 907 + shoe_index * 997  # All relatively prime.
-  index = int32((index + random_offset) % hand_start_card_index)
+  index = uint32((index + random_offset) % uint64(hand_start_card_index))
   return index
 
 
@@ -2330,20 +2338,20 @@ def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: in
 def simulate_hand(
     shoe_index: int, shoe: _NDArray, card_index: int, split_table: _NDArray,
     action_table: _NDArray, min_num_player_cards: int, rules_blackjack_payout: float,
-    rules_hit_soft17: bool, rules_obo: bool, rules_split_to_num_hands: float,
-    rules_resplit_aces: bool, split_second_cards: _NDArray) -> tuple[float, int]:
+    rules_hit_soft17: bool, rules_obo: bool, rules_split_to_num_hands: int,
+    rules_resplit_aces: bool, split_second_cards: _NDArray) -> tuple[numba.float32, int]:
   """Return `(reward, card_index)` after playing a hand from the shoe."""
-  int32 = numba.int32
-  card_index = int32(card_index)
-  hand_start_card_index = int32(card_index)
+  int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
+  card_index = uint32(card_index)
+  hand_start_card_index = uint32(card_index)
 
   def get_card() -> Card:
     """Return a card value retrieved from the shoe."""
     nonlocal card_index
-    index = int32(card_index)
+    index = uint32(card_index)
     card_index += 1
     if index >= len(shoe):
-      index = end_of_shoe_reshuffle(index, shoe_index, hand_start_card_index)
+      index = uint32(end_of_shoe_reshuffle(index, shoe_index, hand_start_card_index))
     card: Card = shoe[index]
     return card
 
@@ -2356,17 +2364,17 @@ def simulate_hand(
   # If player has blackjack, we allow player to consider (suboptimal) actions other than STAND.
   player_gets_bj = False
   if dealer_bj and rules_obo and not player_bj:
-    return -1.0, card_index
+    return float32(-1.0), card_index
 
   have_split = (card1 == card2 and  # pylint: disable=chained-comparison
                 rules_split_to_num_hands >= 2 and
-                split_table[int32(card1 - 1), int32(dealer1 - 1)] and
+                split_table[uint32(card1 - 1), uint32(dealer1 - 1)] and
                 min_num_player_cards <= 2)
 
-  def reward_after_dealer(player_total: int) -> float:
+  def reward_after_dealer(player_total: int) -> numba.float32:
     """Return the reward after dealer acts."""
     if player_total > 21 or dealer_bj:
-      return -1.0  # Player busts or dealer has blackjack.
+      return float32(-1.0)  # Player busts or dealer has blackjack.
 
     dealer_total, dealer_soft = numba_combine_two_cards(dealer1, dealer2)
     while (dealer_total < 17 or (dealer_total == 17 and dealer_soft and rules_hit_soft17)):
@@ -2374,10 +2382,11 @@ def simulate_hand(
       dealer_total, dealer_soft = numba_add_card(dealer_total, dealer_soft, card)
 
     if dealer_total > 21:
-      return 1.0  # Dealer busts and thus player wins.
+      return float32(1.0)  # Dealer busts and thus player wins.
 
     # Player wins, pushes, or loses.
-    return 1.0 if player_total > dealer_total else 0.0 if player_total == dealer_total else -1.0
+    return (float32(1.0) if player_total > dealer_total else
+            float32(0.0) if player_total == dealer_total else float32(-1.0))
 
   def create_split_hands(card1: Card) -> int:
     """Return series of second cards after iteratively splitting."""
@@ -2398,55 +2407,58 @@ def simulate_hand(
         num_split_second_cards += 1
     return num_split_second_cards
 
-  def simulate_potentially_split_hand() -> float:
+  def simulate_potentially_split_hand() -> numba.float32:
     """Separately consider each hand after potential splitting."""
     nonlocal player_gets_bj
-    action_table_slice = action_table[card1 - 1, card2 - 1, dealer1 - 1, int(have_split)]
+    action_table_slice = action_table[
+        uint32(card1 - 1), uint32(card2 - 1), uint32(dealer1 - 1), uint32(have_split)
+    ]
     is_first_action = True
     player_total, player_soft = numba_combine_two_cards(card1, card2)
 
     while True:
-      force_hit = card_index - hand_start_card_index - 2 < min_num_player_cards
-      action_value = (Action.HIT.value if force_hit else
-                      action_table_slice[int(is_first_action), player_total - 4, int(player_soft)])
+      force_hit = int32(int32(card_index - hand_start_card_index) - 2) < min_num_player_cards
+      action_value = (
+          Action.HIT.value if force_hit else
+          action_table_slice[uint32(is_first_action), uint32(player_total - 4), uint32(player_soft)]
+      )
 
       # Unfortunately, numba does not support match/case control structure.
       if action_value == Action.STAND.value:
         if is_first_action and player_bj:
           player_gets_bj = True
-          return rules_blackjack_payout if not dealer_bj else 0.0
-        return reward_after_dealer(player_total)
+          return float32(rules_blackjack_payout) if not dealer_bj else float32(0.0)
+        return float32(reward_after_dealer(player_total))
 
       if action_value == Action.HIT.value:
         card = get_card()
         player_total, player_soft = numba_add_card(player_total, player_soft, card)
         if player_total > 21:
-          return -1.0
+          return float32(-1.0)
         is_first_action = False
         continue
 
       if action_value == Action.DOUBLE.value:
         card = get_card()
         player_total, player_soft = numba_add_card(player_total, player_soft, card)
-        return reward_after_dealer(player_total) * 2
+        return float32(reward_after_dealer(player_total) * 2)
 
       if action_value == Action.SURRENDER.value:
-        return -1.0 if dealer_bj else -0.5
+        return float32(-1.0) if dealer_bj else float32(-0.5)
 
       raise AssertionError
 
   if have_split:
-    reward = 0.0
+    reward = float32(0.0)
     num_split_second_cards = create_split_hands(card1)
-    for index_split_second_card in range(num_split_second_cards):
-      card2 = split_second_cards[index_split_second_card]
-      reward += simulate_potentially_split_hand()
+    for card2 in split_second_cards[:num_split_second_cards]:
+      reward += float32(simulate_potentially_split_hand())
 
   else:
-    reward = simulate_potentially_split_hand()
+    reward = float32(simulate_potentially_split_hand())
 
   if dealer_bj and rules_obo and not player_gets_bj:  # (If player fails to STAND on bj.)
-    reward = -1.0
+    reward = float32(-1.0)
 
   return reward, card_index
 
@@ -2462,7 +2474,7 @@ def simulate_hand(
 def simulate_shoes_helper(
     start_shoe_index: int, shoes: _NDArray, split_table: _NDArray, action_table: _NDArray,
     min_num_player_cards: int, rules_blackjack_payout: float, rules_hit_soft17: bool,
-    rules_obo: bool, rules_split_to_num_hands: float, rules_resplit_aces: bool,
+    rules_obo: bool, rules_split_to_num_hands: int, rules_resplit_aces: bool,
     rules_cut_card: int, hands_per_shoe: int) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
   assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
@@ -2480,7 +2492,7 @@ def simulate_shoes_helper(
       reward, card_index = simulate_hand(
           shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
           float(rules_blackjack_payout), rules_hit_soft17, rules_obo,
-          float(rules_split_to_num_hands), rules_resplit_aces, split_second_cards)
+          rules_split_to_num_hands, rules_resplit_aces, split_second_cards)
       shoe_played_hands += 1
       sum_rewards += reward
       sum_squared_rewards += reward * reward
@@ -2512,9 +2524,10 @@ def simulate_shoes(start_shoe_index: int, shoes: _NDArray, rules: Rules, strateg
   # - hit_split_aces, double_split_aces are already encoded in `split_table`.
   # - double_min_total, double_after_split, late_surrender, strategy.first_actions,
   #   strategy.attention are already encoded in `action_table`.
+  rules_split_to_num_hands = get_int_split_to_num_hands(rules)
   return simulate_shoes_helper(
       start_shoe_index, shoes, split_table, action_table, min_num_player_cards,
-      float(rules.blackjack_payout), rules.hit_soft17, rules.obo, float(rules.split_to_num_hands),
+      float(rules.blackjack_payout), rules.hit_soft17, rules.obo, rules_split_to_num_hands,
       rules.resplit_aces, rules.cut_card, hands_per_shoe)
 
 
@@ -2773,7 +2786,7 @@ if EFFORT >= 2:
   hh.print_time(lambda: measure_parallelism_speedup(parallel=True))
 # (Note: the last number often goes up by 1.5x until we restart the kernel.)
 # ~5.5 s.
-# ~640 ms.
+# ~550 ms.
 
 # %% [markdown]
 # ### Simulation using CUDA
@@ -2792,7 +2805,7 @@ def create_and_simulate_shoes_cuda(
     rng_states: _CudaArray, shoes_per_thread: int, shoe_size: int, start_shoe_index: int,
     split_table: _CudaArray, action_table: _CudaArray, min_num_player_cards: int,
     rules_num_decks_inf: bool, rules_blackjack_payout: float, rules_hit_soft17: bool,
-    rules_obo: bool, rules_split_to_num_hands: float, rules_resplit_aces: bool,
+    rules_obo: bool, rules_split_to_num_hands: int, rules_resplit_aces: bool,
     rules_cut_card: int, hands_per_shoe: int, global_result: _CudaArray,
     progress: _CudaArray,
 ) -> None:
@@ -2814,8 +2827,8 @@ def create_and_simulate_shoes_cuda(
   split_second_cards = cuda.local.array(SPLIT_SECOND_CARDS_SIZE, np.int8)
 
   num_played_hands = int32(0)
-  sum_rewards = float32(0.0)
-  sum_squared_rewards = float32(0.0)
+  sum_rewards = float32(0)
+  sum_squared_rewards = float32(0)
 
   if not rules_num_decks_inf:
     # Create the unshuffled shoe.
@@ -2835,29 +2848,40 @@ def create_and_simulate_shoes_cuda(
     shoe_index = start_shoe_index + thread_index * shoes_per_thread + local_shoe_index
 
     if rules_num_decks_inf:
-      for i in range(int32(shoe_size)):
+      # for i in range(int32(shoe_size)):
+      i = uint32(0)
+      while i < shoe_size:
         random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
         random_uint32 = uint32(random_uint32)
         s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
-        # value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
-        # shoe[i] = min(int32(float32(value_in_unit_interval * 13)) + 1, 10)
-        v = int32(float32(random_uint32) * float32((1.0 - 1e-7) * 13.0 / 2**32))
-        shoe[i] = min(int32(v + 1), int32(10))
+        if 0:
+          value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
+          shoe[i] = min(int32(float32(value_in_unit_interval * 13)) + 1, 10)
+        else:
+          v = int32(float32(random_uint32) * float32((1.0 - 1e-7) * 13.0 / 2**32))
+          shoe[i] = min(int32(v + 1), int32(10))
+        i = uint32(i + 1)
 
     else:
       # Apply Fisher-Yates shuffle to the current shoe.
-      for i in range(int32(shoe_size - 1), int32(0), int32(-1)):
+      # for i in range(int32(shoe_size - 1), int32(0), int32(-1)):
+      i = uint32(shoe_size - 1)
+      while i > 0:
+        # Swap element at [i] with any element [0, ..., i].
         # random_uint32 = cuda.random.xoroshiro128p_next(rng_states, thread_index)
         random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
         random_uint32 = uint32(random_uint32)
         s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
         if 0:
           j = random_uint32 % uint32(i + 1)  # Remainder is somewhat expensive in CUDA.
-        else:
+        elif 0:
           # In `random_uint32`, the msb are more random than the lsb, so float32 mul is better.
           value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
-          j = uint32(float32(value_in_unit_interval * float32(i + 1)))
+          j = uint32(float32(value_in_unit_interval * float32(int32(i + 1))))
+        else:
+          j = uint32(float32(random_uint32) * float32((1.0 - 1e-7) / 2**32) * float32(int32(i + 1)))
         shoe[i], shoe[j] = shoe[j], shoe[i]
+        i = uint32(i - 1)
 
     # Simulate playing hands on shoe.
     card_index = int32(0)
@@ -2931,6 +2955,7 @@ def simulate_shoes_cuda(
 ) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
   assert num_shoes >= 0 and start_shoe_index >= 0 and hands_per_shoe >= 0
+  rules_split_to_num_hands = get_int_split_to_num_hands(rules)
   shoe_size = get_shoe_size_cuda(rules.num_decks)
   threads_per_block = get_threads_per_block(shoe_size)
 
@@ -2957,7 +2982,7 @@ def simulate_shoes_cuda(
   create_and_simulate_shoes_cuda[blocks, threads_per_block, 0, dynamic_shared_memory_size](
       d_rng_states, shoes_per_thread, shoe_size, start_shoe_index,
       d_split_table, d_action_table, min_num_player_cards, rules.num_decks == math.inf,
-      rules.blackjack_payout, rules.hit_soft17, rules.obo, rules.split_to_num_hands,
+      rules.blackjack_payout, rules.hit_soft17, rules.obo, rules_split_to_num_hands,
       rules.resplit_aces, rules.cut_card, hands_per_shoe, d_result, d_progress)
 
   event.record()
@@ -2997,14 +3022,14 @@ if cuda.is_available():
 
 # %%
 def write_numba_assembly_code(function: Any, filename: str) -> None:
-  """Write the asm or ptx code to an output file."""
+  """Write the asm or ptx code for a numba function to an output file."""
   (asm_or_ptx,) = function.inspect_asm().values()
   pathlib.Path(filename).write_text(asm_or_ptx, encoding='utf-8')
 
 
 # %%
 def report_cuda_kernel_properties(function: Callable[..., Any]) -> None:
-  """Show memory attributes of CUDA kernel function."""
+  """Show memory attributes of a CUDA kernel function."""
   PROPERTIES = 'const_mem_size local_mem_per_thread max_threads_per_block regs_per_thread shared_mem_per_block'.split()
   for property_name in PROPERTIES:
     (value,) = getattr(function, 'get_' + property_name)().values()
@@ -3064,7 +3089,7 @@ def monte_carlo_house_edge_cuda_timing(num_decks: float) -> None:
 
 
 # %%
-if 0:
+if 1:
   if cuda.is_available():
     print('Timing:')
     # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(1)  # ~90-150 ms.
@@ -3141,7 +3166,7 @@ if cuda.is_available():
 def simulate_shoes_all_cut_cards_nonjit(
     start_shoe_index: int, shoes: _NDArray, split_table: _NDArray, action_table: _NDArray,
     rules_blackjack_payout: float, rules_hit_soft17: bool, rules_obo: bool,
-    rules_split_to_num_hands: float, rules_resplit_aces: bool,
+    rules_split_to_num_hands: int, rules_resplit_aces: bool,
     output_played_hands: _NDArray, output_rewards: _NDArray) -> None:
   """Play hands from all shoes, updating arrays played_hands and rewards."""
   assert start_shoe_index >= 0 and shoes.ndim == 2
@@ -3156,7 +3181,7 @@ def simulate_shoes_all_cut_cards_nonjit(
       reward, card_index2 = simulate_hand(
           shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
           float(rules_blackjack_payout), rules_hit_soft17, rules_obo,
-          float(rules_split_to_num_hands), rules_resplit_aces, split_second_cards)
+          rules_split_to_num_hands, rules_resplit_aces, split_second_cards)
       output_played_hands[card_index] += 1
       output_rewards[card_index] += reward
       card_index = card_index2
@@ -3175,6 +3200,7 @@ def simulate_many_shoes_all_cut_cards(
   """Return played_hands and rewards simulating all cut-card positions."""
   assert 0 <= start_shoe_index <= stop_shoe_index
   rules = normalize_rules_for_probabilistic_analysis(rules)
+  rules_split_to_num_hands = get_int_split_to_num_hands(rules)
   split_table, action_table = create_tables(rules, strategy, quiet=True)
   shoe_size = int(rules.num_decks) * DECK_SIZE
   played_hands = np.zeros(shoe_size, np.int64)  # [0] is cut_card == 1
@@ -3191,7 +3217,7 @@ def simulate_many_shoes_all_cut_cards(
       shoes = create_shoes(num_batch_shoes, seed_index)
       shoes = shoes[start - seed_index:]
       rules_args = (rules.blackjack_payout, rules.hit_soft17, rules.obo,
-                    rules.split_to_num_hands, rules.resplit_aces)
+                    rules_split_to_num_hands, rules.resplit_aces)
       simulate_shoes_all_cut_cards(
           start, shoes, split_table, action_table, *rules_args, played_hands, rewards)
       progress_bar.update(len(shoes))
@@ -6106,7 +6132,7 @@ hh.show_notebook_cell_top_times()
 # EFFORT=2: ~2_450 s (+ ~160 s cut_card_analysis_results) (10.5 GiB)
 #      Colab: timed out.
 #     Kaggle: ~24_000 s
-# EFFORT=3: ~16_000 s (~4.5 hrs) with CUDA (18.6 GiB)
+# EFFORT=3: ~15_000 s (~4.5 hrs) with CUDA (18.5 GiB, 1.2 GiB GPU)
 #           ~25_000 s (~8 hrs) (+ ~11_000 s cut_card_analysis_results)
 # EFFORT=4: ~40 hrs or more.
 
