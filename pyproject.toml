@@ -24,6 +24,7 @@ disable = [
     "use-dict-literal", "unnecessary-lambda-assignment",
     # Local.
     "too-many-instance-attributes", "too-many-statements", "too-many-positional-arguments",
+    "too-many-function-args", "too-many-branches",
     "missing-module-docstring",
 ]
 reports = false
