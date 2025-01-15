@@ -107,6 +107,7 @@ import dataclasses
 import enum
 import functools
 import itertools
+import logging
 import math
 import multiprocessing
 import os
@@ -2945,6 +2946,26 @@ def get_threads_per_block(shoe_size: int) -> int:
 
 
 # %%
+def disable_numba_logging_cuda_error_not_ready() -> None:
+  """Disable logging `event.query()` error messages, e.g. on Colab."""
+
+  class CUDAEventQueryFilter(logging.Filter):
+    """Filter to suppress CUDA event query 'not ready' messages."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+      """Return False to block messages containing this text."""
+      return "Call to cuEventQuery results in CUDA_ERROR_NOT_READY" not in record.msg
+
+  numba_logger = logging.getLogger('numba.cuda.cudadrv.driver')
+  # numba_logger.setLevel(logging.CRITICAL)  # This will hide all messages below CRITICAL level.
+  # numba_logger.setLevel(logging.WARNING)  # Restore.
+
+  if not any(isinstance(f, CUDAEventQueryFilter) for f in numba_logger.filters):
+    numba_logger.addFilter(CUDAEventQueryFilter())  # Filter only select messages.
+  # numba_logger.filters = []  # This removes all filters.
+
+
+# %%
 # To determine the optimal threads_per_block:
 # # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=1), Strategy(), 10**8)  # ~200 ms.
 
@@ -2987,6 +3008,7 @@ def simulate_shoes_cuda(
       rules.blackjack_payout, rules.hit_soft17, rules.obo, rules_split_to_num_hands,
       rules.resplit_aces, rules.cut_card, hands_per_shoe, d_result, d_progress)
 
+  disable_numba_logging_cuda_error_not_ready()
   event.record()
   last_progress = 0
   with tqdm_stdout(total=blocks, desc='sim', disable=quiet) as progress_bar:
@@ -3114,7 +3136,8 @@ def test_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> 
   del reward_sdv
   elapsed_time = (time.perf_counter_ns() - start_time) / 10**9
   hands_per_s = played_hands / elapsed_time
-  print(f'# house_edge = {house_edge * 100:.4f}%  {played_hands = :15,}  {hands_per_s = :,.0f}')
+  print(f'# ndecks={num_decks:<3} house edge {house_edge * 100:.4f}%'
+        f' {played_hands:16,} hands {hands_per_s:14,.0f} hands/s')
   assert abs(house_edge - expected_edge) < 5.0 / num_hands**0.5, (house_edge, expected_edge)
 
 
@@ -3132,6 +3155,13 @@ if cuda.is_available():
 # house_edge = 0.4577%  played_hands =  96,997,605,628  hands_per_s = 927,547,367
 # house_edge = 0.5957%  played_hands =  99,725,755,596  hands_per_s = 554,083,340
 # house_edge = 0.7313%  played_hands = 100,000,964,700  hands_per_s = 918,843,535
+#
+# Colab:
+# With EFFORT=2:
+# house_edge = 0.1700%  played_hands =  10,262,862,308  hands_per_s = 2,093,744,386
+# house_edge = 0.4586%  played_hands =   9,699,695,563  hands_per_s = 2,311,991,436
+# house_edge = 0.5951%  played_hands =   9,972,388,247  hands_per_s = 1,650,981,161
+# house_edge = 0.7311%  played_hands =  10,000,008,000  hands_per_s = 2,454,392,267
 #
 # analyze_number_of_decks(Rules.make(late_surrender=False))
 # Rules(late_surrender=False) EFFORT=3
@@ -6135,7 +6165,7 @@ hh.show_notebook_cell_top_times()
 # EFFORT=0: ~50 s (0.8 GiB)
 # EFFORT=1: ~100 s (bottleneck is prob. computations)
 #        old: ~165 s (bottleneck is prob. computations)
-#      Colab: ~560 s with 20% num_hands; max 12 GB mem; table of contents.
+#      Colab: ~250 s with 100% num_hands; max 12 GB mem; table of contents.
 #  SageMaker: ~870 s with 100% num_hands; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
 #     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
