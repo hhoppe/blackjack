@@ -145,12 +145,12 @@ def omit_cell_output() -> None:
 
 # %%
 # To archive the notebook, run with value 2.
-EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 3))
+EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 2))
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at lowest precision (~50 s).
 - 1: Fast subset of experiments, at low precision (~100 s).
-- 2: Most experiments, at normal precision (~40 minutes).
-- 3: All experiments, at high precision (~7 hours).
+- 2: Most experiments, at normal precision (~16 minutes).
+- 3: All experiments, at high precision (~?7 hours).
 - 4: Run at even higher precision (>40 hours), likely on isolated experiments."""
 assert 0 <= EFFORT <= 4
 
@@ -3109,19 +3109,21 @@ def monte_carlo_house_edge_cuda(
 # %%
 def monte_carlo_house_edge_cuda_timing(num_decks: float) -> None:
   """Show timing for house edge computation."""
-  monte_carlo_house_edge_cuda(Rules.make(num_decks=num_decks), Strategy(), 10**8, quiet=True)
+  monte_carlo_house_edge_cuda(Rules.make(num_decks=num_decks), Strategy(), 5 * 10**8, quiet=True)
 
 
 # %%
 if 1:
   if cuda.is_available():
     print('Timing:')
-    # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(1)  # ~90-150 ms.
-    # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(2)  # ~60-140 ms.
-    # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(4)  # ~80-200 ms.
-    # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(6)  # ~280-340 ms.
-    # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(8)  # ~260-350 ms.
-    # %timeit -n1 -r4 monte_carlo_house_edge_cuda_timing(math.inf)  # ~150-180 ms.
+    # Why does the first item always take more time, even if reordered??
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(1)  # ~230 ms.
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(1)  # ~140 ms.
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(2)  # ~110 ms.
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(4)  # ~130 ms.
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(6)  # ~190 ms.
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(8)  # ~210 ms.
+    # %timeit -n1 -r2 monte_carlo_house_edge_cuda_timing(math.inf)  # ~110 ms.
 
 
 # %%
@@ -3150,11 +3152,11 @@ if cuda.is_available():
   test_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007314)
 
 # %%
-# With EFFORT=3:
-# house_edge = 0.1702%  played_hands = 102,628,517,474  hands_per_s = 886,400,078
-# house_edge = 0.4577%  played_hands =  96,997,605,628  hands_per_s = 927,547,367
-# house_edge = 0.5957%  played_hands =  99,725,755,596  hands_per_s = 554,083,340
-# house_edge = 0.7313%  played_hands = 100,000,964,700  hands_per_s = 918,843,535
+# With EFFORT=2:
+# ndecks=1   house edge 0.1700%   10,262,862,308 hands  6,285,113,553 hands/s
+# ndecks=2   house edge 0.4586%    9,699,695,563 hands  8,349,619,279 hands/s
+# ndecks=4   house edge 0.5951%    9,972,388,247 hands  6,058,195,383 hands/s
+# ndecks=inf house edge 0.7311%   10,000,008,000 hands  8,155,135,475 hands/s
 #
 # Colab:
 # With EFFORT=2:
@@ -6170,7 +6172,7 @@ hh.show_notebook_cell_top_times()
 #     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
 #   DeepNote: ~550 s with 20% num_hands; max 5 GB mem; table of contents; copies GitHub; must login.
-# EFFORT=2: ~2_450 s (+ ~160 s cut_card_analysis_results) (10.5 GiB)
+# EFFORT=2: ~970 s (+ ~160 s cut_card_analysis_results) (10.5 GiB; 1.2 GiB GPU)
 #      Colab: timed out.
 #     Kaggle: ~24_000 s
 # EFFORT=3: ~15_000 s (~4.5 hrs) with CUDA (18.5 GiB, 1.2 GiB GPU)
