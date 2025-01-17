@@ -2888,6 +2888,101 @@ def get_threads_per_block(shoe_size: int) -> int:
 
 
 # %%
+@numba_njit(device=True, inline='always')
+def create_unshuffled_shoe_cuda(
+    shoe_size: int, rules_num_decks_inf: bool, hand_cards: _CudaArray
+) -> _CudaArray:
+  """Allocate a shoe. If there is a finite number of decks, enter their cards in the shoe."""
+  int32, uint32 = numba.int32, numba.uint32
+  num_fixed = int32(len(hand_cards))
+  thread_id = cuda.threadIdx.x  # Index within block.
+  # threads_per_block = cuda.blockDim.x
+  block_shoe_dynamic = cuda.shared.array(0, np.int8)  # (threads_per_block, shoe_size).
+  shoe = block_shoe_dynamic[thread_id * shoe_size : (thread_id + 1) * shoe_size]
+
+  if not rules_num_decks_inf:
+    num_of_each_card = int32(shoe_size // 13)
+    card_index = uint32(0)
+    for card_value in CARD_VALUES:
+      for _ in range(num_of_each_card):
+        shoe[card_index] = card_value
+        card_index = uint32(card_index + 1)
+
+  if num_fixed:
+    if rules_num_decks_inf:
+      for i in range(num_fixed):
+        shoe[i] = hand_cards[i]
+    else:
+      # For each card in the hand, swap one from the shoe into its expected location.
+      for i in range(num_fixed):
+        for j in range(i + 1, shoe_size):
+          if shoe[j] == hand_cards[i]:
+            shoe[i], shoe[j] = shoe[j], shoe[i]
+            break
+
+  return shoe
+
+
+# %%
+@numba_njit(device=True, inline='always')
+def shuffle_shoe_cuda(
+    rng: Any, shoe: _CudaArray, rules_num_decks_inf: bool, num_fixed: int
+) -> None:
+  """Apply randomm shuffling to the cards in the shoe."""
+  int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
+  # Load the state of the random number generator into registers.
+  s0, s1, s2, s3 = uint32(rng['s0']), uint32(rng['s1']), uint32(rng['s2']), uint32(rng['s3'])
+
+  shoe_size = uint32(len(shoe))
+  if rules_num_decks_inf:
+    # for i in range(int32(shoe_size)):
+    i = uint32(num_fixed)
+    while i < shoe_size:
+      random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
+      random_uint32 = uint32(random_uint32)
+      s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
+      if 0:
+        value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
+        shoe[i] = min(int32(float32(value_in_unit_interval * 13)) + 1, 10)
+      else:
+        v = int32(float32(random_uint32) * float32((1.0 - 1e-7) * 13.0 / 2**32))
+        shoe[i] = min(int32(v + 1), int32(10))
+      i = uint32(i + 1)
+
+  else:
+    # Apply Fisher-Yates shuffle to the current shoe.
+    i = uint32(num_fixed)
+    while uint32(i + 1) < shoe_size:
+      # Swap element at [i] with a random element in [i:].
+      # random_uint32 = cuda.random.xoroshiro128p_next(rng_states, thread_index)
+      random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
+      random_uint32 = uint32(random_uint32)
+      s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
+      mod = uint32(shoe_size - i)
+      if 0:
+        j = i + random_uint32 % mod  # Remainder is somewhat expensive in CUDA.
+      elif 0:
+        # In `random_uint32`, the msb are more random than the lsb, so float32 mul is better.
+        value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
+        j = i + uint32(float32(value_in_unit_interval * float32(mod)))
+      else:
+        j = i + uint32(float32(random_uint32) * float32((1.0 - 1e-7) / 2**32) * float32(mod))
+      shoe[i], shoe[j] = shoe[j], shoe[i]
+      i = uint32(i + 1)
+
+  if num_fixed > 3:  # Insert random dealer2 card in front of [player_]card3.
+    dealer2 = shoe[num_fixed]
+    i = uint32(num_fixed)
+    while i > 3:
+      shoe[i] = shoe[uint32(i - 1)]
+      i = uint32(i - 1)
+    shoe[3] = dealer2
+
+  # Updates to this structured array does affect the value in the caller function.
+  rng['s0'], rng['s1'], rng['s2'], rng['s3'] = s0, s1, s2, s3
+
+
+# %%
 @cuda.jit(fastmath=True)  # type: ignore[misc]
 def create_and_simulate_shoes_cuda(
     rng_states: _CudaArray, hand_cards1: _CudaArray,
@@ -2901,101 +2996,31 @@ def create_and_simulate_shoes_cuda(
   """Compute `(played_hands, sum_rewards, sum_squared_rewards)` over all hands."""
   # pylint: disable=no-value-for-parameter, comparison-with-callable
   int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
+  shoe_size = int32(shoe_size)
+  rules_cut_card, hands_per_shoe = int32(rules_cut_card), int32(hands_per_shoe)
   assert split_table.ndim == 2 and action_table.ndim == 7
   assert split_table.itemsize == 1 and action_table.itemsize == 1
   assert hand_cards1[0] == -1
-  hand_cards = hand_cards1[1:]  # card1, dealer1, card2, /*no_dealer2*/, card3, ... cardn.
-  num_fixed = int32(len(hand_cards))
-  shoe_size = int32(shoe_size)
-  rules_cut_card, hands_per_shoe = int32(rules_cut_card), int32(hands_per_shoe)
-  # threads_per_block = cuda.blockDim.x
   thread_index = cuda.grid(1)
   if thread_index >= len(rng_states):
     return
 
-  thread_id = cuda.threadIdx.x  # Index within block.
-  block_shoe_dynamic = cuda.shared.array(0, np.int8)  # (threads_per_block, shoe_size).
-  shoe = block_shoe_dynamic[thread_id * shoe_size : (thread_id + 1) * shoe_size]
+  hand_cards = hand_cards1[1:]  # card1, dealer1, card2, /*no_dealer2*/, card3, ... cardn.
+  num_fixed = int32(len(hand_cards))
+  rng = rng_states[thread_index]
   split_second_cards = cuda.local.array(SPLIT_SECOND_CARDS_SIZE, np.int8)
+  min_num_player_cards = int32(num_fixed - 1) if num_fixed else int32(0)
 
   num_played_hands = uint32(0)
   sum_rewards = float32(0)
   sum_squared_rewards = float32(0)
 
-  if not rules_num_decks_inf:
-    # Create the unshuffled shoe.
-    num_of_each_card = int32(shoe_size // 13)
-    card_index = uint32(0)
-    for card_value in CARD_VALUES:
-      for _ in range(num_of_each_card):
-        shoe[card_index] = card_value
-        card_index = uint32(card_index + 1)
-
-  min_num_player_cards = int32(0)
-  if num_fixed:
-    assert hands_per_shoe == 1
-    min_num_player_cards = int32(num_fixed - 1)
-    if rules_num_decks_inf:
-      for i in range(num_fixed):
-        shoe[i] = hand_cards[i]
-    else:
-      for i in range(num_fixed):
-        for j in range(i + 1, shoe_size):
-          if shoe[j] == hand_cards[i]:
-            shoe[i], shoe[j] = shoe[j], shoe[i]
-            break
-
-  # Load the random-number generator state into registers.
-  rng = rng_states[thread_index]
-  s0, s1, s2, s3 = uint32(rng['s0']), uint32(rng['s1']), uint32(rng['s2']), uint32(rng['s3'])
+  shoe = create_unshuffled_shoe_cuda(shoe_size, rules_num_decks_inf, hand_cards)
 
   # Perform iterations of shuffling the shoe and simulating its played hands.
   for local_shoe_index in range(int32(shoes_per_thread)):
     shoe_index = start_shoe_index + thread_index * shoes_per_thread + local_shoe_index
-
-    if rules_num_decks_inf:
-      # for i in range(int32(shoe_size)):
-      i = uint32(num_fixed)
-      while i < shoe_size:
-        random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
-        random_uint32 = uint32(random_uint32)
-        s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
-        if 0:
-          value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
-          shoe[i] = min(int32(float32(value_in_unit_interval * 13)) + 1, 10)
-        else:
-          v = int32(float32(random_uint32) * float32((1.0 - 1e-7) * 13.0 / 2**32))
-          shoe[i] = min(int32(v + 1), int32(10))
-        i = uint32(i + 1)
-
-    else:
-      # Apply Fisher-Yates shuffle to the current shoe.
-      i = uint32(num_fixed)
-      while uint32(i + 1) < shoe_size:
-        # Swap element at [i] with a random element in [i:].
-        # random_uint32 = cuda.random.xoroshiro128p_next(rng_states, thread_index)
-        random_uint32, s0, s1, s2, s3 = random32.xoshiro128p_next_raw(s0, s1, s2, s3)
-        random_uint32 = uint32(random_uint32)
-        s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
-        mod = uint32(shoe_size - i)
-        if 0:
-          j = i + random_uint32 % mod  # Remainder is somewhat expensive in CUDA.
-        elif 0:
-          # In `random_uint32`, the msb are more random than the lsb, so float32 mul is better.
-          value_in_unit_interval = float32(random32.uint32_to_unit_float32(random_uint32))
-          j = i + uint32(float32(value_in_unit_interval * float32(mod)))
-        else:
-          j = i + uint32(float32(random_uint32) * float32((1.0 - 1e-7) / 2**32) * float32(mod))
-        shoe[i], shoe[j] = shoe[j], shoe[i]
-        i = uint32(i + 1)
-
-    if num_fixed > 3:  # Insert random dealer2 card in front of [player_]card3.
-      dealer2 = shoe[num_fixed]
-      i = uint32(num_fixed)
-      while i > 3:
-        shoe[i] = shoe[uint32(i - 1)]
-        i = uint32(i - 1)
-      shoe[3] = dealer2
+    shuffle_shoe_cuda(rng, shoe, rules_num_decks_inf, num_fixed)
 
     # Simulate playing hands on shoe.
     card_index = uint32(0)
@@ -3019,6 +3044,7 @@ def create_and_simulate_shoes_cuda(
     num_played_hands = uint32(num_played_hands + shoe_played_hands)
 
   # First accumulate results per-block, then accumulate into the global results.
+  thread_id = cuda.threadIdx.x  # Index within block.
   NUM_RESULTS = 3  # (played_hands, sum_rewards, sum_squared_rewards)
   shared_result = cuda.shared.array(NUM_RESULTS, np.float64)  # Per-block intermediate result.
   if thread_id == 0:
