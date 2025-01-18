@@ -153,8 +153,8 @@ def omit_cell_output() -> None:
 EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 2))
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at lowest precision (~50 s).
-- 1: Fast subset of experiments, at low precision (~100 s).
-- 2: Most experiments, at normal precision (~16 minutes).
+- 1: Fast subset of experiments, at low precision (~80 s).
+- 2: Most experiments, at normal precision (~17 minutes).
 - 3: All experiments, at high precision (~?7 hours).
 - 4: Run at even higher precision (>40 hours), likely on isolated experiments."""
 assert 0 <= EFFORT <= 4
@@ -277,7 +277,8 @@ def tqdm_stdout(*args: Any, **kwargs: Any) -> Any:
   """Progress bar customized to show a short ascii text line on stdout."""
   if not hh.in_notebook():
     kwargs['disable'] = True
-  return tqdm.tqdm(*args, leave=False, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
+  kwargs |= dict(leave=False)
+  return tqdm.tqdm(*args, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
                    bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]', **kwargs)
 # Notes: tqdm uses '\r' and overwrites with spaces (annoying for copy-paste);
 # jupyterlab does not correctly handle more than two backspaces ('\b');
@@ -331,8 +332,6 @@ hh.adjust_jupyterlab_markdown_width()
 # "In Pitch Blackjack (i.e., single deck or double deck), the cut card is inserted closer to the
 # top of the deck, about 1/2 of the way down.  In most cases, the deck is shuffled after
 # each hand of play."
-
-
 def default_cut_card(num_decks: float) -> int:
   """Return the default number of cards in front of the cut-card for a shoe with `num_decks`."""
   match num_decks:
@@ -2559,7 +2558,7 @@ def test_simulate_single_shoe() -> None:
   deck = np.array(CARD_VALUES).repeat(NUM_SUITS)
   np.random.default_rng(4).shuffle(deck)
   shoes = deck[None]
-  print(shoes)
+  # print(shoes)
   min_num_player_cards = 0
   hands_per_shoe = 4
   # [[ 5  3 10 10 10 10 10  7  7  1 10 10  3  9  4  5  5 10 10  2  9  9  3 10
@@ -2573,7 +2572,7 @@ def test_simulate_single_shoe() -> None:
 
 # %%
 if 1:
-  test_simulate_single_shoe()  # ~6-12 s for jit compilation.
+  test_simulate_single_shoe()  # ~6-14 s for jit compilation.
 
 
 # %%
@@ -2633,7 +2632,10 @@ def get_hands_per_shoe(cut_card: int, shoe_size: int) -> int:
 def get_num_hands() -> int:
   """Return the desired number of simulated hands based on `EFFORT` setting."""
   n1 = 10_000_000 if multiprocessing_is_available() else 2_000_000
-  return [n1 // 2, n1, 1_000_000_000, 10_000_000_000, 50_000_000_000][EFFORT]
+  num_hands = [n1 // 2, n1, 1_000_000_000, 10_000_000_000, 50_000_000_000][EFFORT]
+  if cuda.is_available():
+    num_hands *= 10
+  return num_hands
 
 
 # %%
@@ -2797,6 +2799,7 @@ def experiment_shoes_per_seed(rules: Rules, num_hands: int, shoes_per_seed: int)
           f' {shoes_per_seed=:<6_} {elapsed:.03f} s')
 
 
+# %%
 def experiment_fastest_shoes_per_seed() -> None:
   """Run experiments to find fast settings for `get_shoes_per_seed`."""
   for num_decks in [6, 4, 2, 1]:
@@ -2811,25 +2814,16 @@ def experiment_fastest_shoes_per_seed() -> None:
 if 0:
   experiment_fastest_shoes_per_seed()
 
-# %%
-# Using parallelism introduces a ~10x speedup (beyond the 30x speedup of numba jitting);
-# timings are obtained on an AMD Ryzen 9 5900X 12-Core Processor, 3701 MHz.
-if EFFORT >= 2:
-  measure_parallelism_speedup = functools.partial(
-      monte_carlo_house_edge_cpu, Rules.make(num_decks=1), Strategy(), 50_000_000, quiet=True)
-  measure_parallelism_speedup(parallel=False)  # Initialize memoization.
-  hh.print_time(lambda: measure_parallelism_speedup(parallel=False))
-  hh.print_time(lambda: measure_parallelism_speedup(parallel=True))
-# (Note: the last number often goes up by 1.5x until we restart the kernel.)
-# ~5.5 s.
-# ~550 ms.
-
 # %% [markdown]
 # ### Simulation using CUDA
 
 # %%
 # import importlib
 # random32 = importlib.reload(random32)
+
+# %%
+CUDA_MAX_SHOE_SIZE = 8 * DECK_SIZE
+
 
 # %%
 def write_numba_assembly_code(function: Callable[..., Any], filename: str) -> None:
@@ -2868,6 +2862,22 @@ def disable_numba_logging_cuda_error_not_ready() -> None:
 
 
 # %%
+def show_cuda_kernel_progress(
+    event: cuda.Event, d_progress: _CudaArray, total: int, desc: str, quiet: bool = False
+) -> None:
+  """Show progress of CUDA kernel given."""
+  disable_numba_logging_cuda_error_not_ready()
+  event.record()
+  last_progress = 0
+  with tqdm_stdout(total=total, desc=desc, disable=quiet) as progress_bar:
+    while not event.query():
+      progress = d_progress[0]
+      progress_bar.update(progress - last_progress)
+      last_progress = progress
+      time.sleep(0.02)
+
+
+# %%
 def get_shoe_size_cuda(num_decks: float) -> int:
   """Return the size of the shoe used to simulate hands given `num_decks`."""
   if num_decks == math.inf:
@@ -2888,7 +2898,7 @@ def get_threads_per_block(shoe_size: int) -> int:
 
 
 # %%
-@numba_njit(device=True, inline='always')
+@numba_njit(device=True, inline='always')  # It must be inlined because it returns an array.
 def create_unshuffled_shoe_cuda(
     shoe_size: int, rules_num_decks_inf: bool, hand_cards: _CudaArray
 ) -> _CudaArray:
@@ -2898,7 +2908,7 @@ def create_unshuffled_shoe_cuda(
   thread_id = cuda.threadIdx.x  # Index within block.
   # threads_per_block = cuda.blockDim.x
   block_shoe_dynamic = cuda.shared.array(0, np.int8)  # (threads_per_block, shoe_size).
-  shoe = block_shoe_dynamic[thread_id * shoe_size : (thread_id + 1) * shoe_size]
+  shoe = block_shoe_dynamic[thread_id * shoe_size : (thread_id + 1) * shoe_size]  # Uninitialized.
 
   if not rules_num_decks_inf:
     num_of_each_card = int32(shoe_size // 13)
@@ -2924,11 +2934,11 @@ def create_unshuffled_shoe_cuda(
 
 
 # %%
-@numba_njit(device=True, inline='always')
+@numba_njit(device=True, inline=('always' if EFFORT >= 2 else 'never'))
 def shuffle_shoe_cuda(
     rng: Any, shoe: _CudaArray, rules_num_decks_inf: bool, num_fixed: int
 ) -> None:
-  """Apply randomm shuffling to the cards in the shoe."""
+  """Apply random shuffling to the cards in the shoe."""
   int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
   # Load the state of the random number generator into registers.
   s0, s1, s2, s3 = uint32(rng['s0']), uint32(rng['s1']), uint32(rng['s2']), uint32(rng['s3'])
@@ -3116,16 +3126,7 @@ def run_simulations_cuda(
       rules.blackjack_payout, rules.hit_soft17, rules.obo, rules_split_to_num_hands,
       rules.resplit_aces, rules.cut_card, hands_per_shoe, d_result, d_progress)
 
-  # Show progress of CUDA kernel.
-  disable_numba_logging_cuda_error_not_ready()
-  event.record()
-  last_progress = 0
-  with tqdm_stdout(total=blocks, desc='sim', disable=quiet) as progress_bar:
-    while not event.query():
-      progress = d_progress[0]
-      progress_bar.update(progress - last_progress)
-      last_progress = progress
-      time.sleep(0.02)
+  show_cuda_kernel_progress(event, d_progress, blocks, 'sim', quiet)
 
   # Retrieve and process CUDA kernel results.
   float_total_played_hands, sum_rewards, sum_squared_rewards = d_result.copy_to_host()
@@ -3148,7 +3149,7 @@ def test_run_simulations_cuda() -> None:
   house_edge = -reward_average
   assert 0.8 < played_hands / num_hands < 1.2, played_hands
   expected_house_edge = 0.00170  # 0.170%.
-  print(f'{played_hands=:,} {expected_house_edge=:.5f} {house_edge=:.5f}')
+  # print(f'{played_hands=:,} {expected_house_edge=:.5f} {house_edge=:.5f}')
   assert abs(house_edge - expected_house_edge) <= 0.0005, house_edge
   assert 1.0 < reward_sdv < 1.3, reward_sdv
 
@@ -3160,7 +3161,8 @@ if cuda.is_available():
 # %%
 if cuda.is_available():
   write_numba_assembly_code(create_and_simulate_shoes_cuda, 'create_and_simulate_shoes.ptx')
-  report_cuda_kernel_properties(create_and_simulate_shoes_cuda)
+  if 0:
+    report_cuda_kernel_properties(create_and_simulate_shoes_cuda)
 
 
 # %%
@@ -3234,7 +3236,7 @@ def monte_carlo_house_edge_cuda_timing(num_decks: float) -> None:
 
 
 # %%
-if EFFORT >= 2:
+if 0:
   if cuda.is_available():
     print('Timing:')
     # (Sometimes, whatever timing is done first shows a slower time.)
@@ -3250,7 +3252,7 @@ if EFFORT >= 2:
 def verify_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> None:
   """Verify that house edge results match the CPU implementation."""
   rules = Rules.make(num_decks=num_decks, late_surrender=False)
-  num_hands = [10**8, 10**9, 10**10, 10**11, 10**12][EFFORT]
+  num_hands = get_num_hands()
   # Both (1) ensure jit and (2) cache the action_table.
   _ = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands // 20, quiet=True)
   start_time = time.perf_counter_ns()
@@ -3270,6 +3272,7 @@ if cuda.is_available():
   verify_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004575)
   verify_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005951)
   verify_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007314)
+
 
 # %%
 # With EFFORT=2:
@@ -3291,6 +3294,38 @@ if cuda.is_available():
 # ndecks=2   prob~ 0.392% (37s)  sim: 0.459% ±0.002%(63s)   wiz: 0.457%  wiki: 0.460%
 # ndecks=4   prob~ 0.562% (47s)  sim: 0.591% ±0.002%(75s)   wiz: 0.597%* wiki: 0.600%+
 # ndecks=inf prob: 0.731% (33s)  sim: 0.727% ±0.002%(63s)
+
+# %%
+def test_simulation_timings() -> None:
+  args = Rules.make(num_decks=2), Strategy()
+  num_hands = 50_000_000
+  f1 = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=False, quiet=True)
+  f1()  # Memoize tables.
+  time_numba = hh.get_time(f1)
+  print(f'numba:              {int(num_hands / time_numba):>15,} hands/s')
+  f2 = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=True, quiet=True)
+  time_multi = hh.get_time(f2)
+  print(f'numba multiprocess: {int(num_hands / time_multi):>15,} hands/s')
+  if cuda.is_available():
+    num_hands *= 50
+    f3 = lambda: monte_carlo_house_edge_cuda(*args, num_hands, quiet=True)
+    time_cuda = hh.get_time(f3)
+    print(f'numba.cuda:         {int(num_hands / time_cuda):>15,} hands/s')
+
+
+# %%
+if EFFORT >= 2:
+  test_simulation_timings()
+# Using parallelism introduces a ~6-9x speedup (beyond the 30x speedup of numba jitting), and
+# using CUDA introduces another 80-100x speedup.
+#
+# Timings are obtained on an AMD Ryzen 9 5900X 12-Core Processor 3701 MHz and
+# an NVIDIA GeForce RTX 3080 Ti.
+#
+# (Note: The hands/s rate for multiprocess often goes down by 1.5x until we restart the kernel.)
+# numba:                   11,925,119 hands/s
+# numba multiprocess:      70,783,821 hands/s
+# numba.cuda:           6,754,715,353 hands/s
 
 # %%
 monte_carlo_house_edge = monte_carlo_house_edge_cpu
@@ -3387,11 +3422,12 @@ class CutCardAnalysisResult:
   rules: Rules
   strategy: Strategy
   num_shoes: int
+  num_hands: int
   house_edge_from_cut_card: dict[int, float]
 
 
 # %%
-def run_simulations_all_cut_cards(
+def run_simulations_all_cut_cards_cpu(
     rules: Rules, strategy: Strategy, num_shoes: int, *, parallel: bool = True,
     start_shoe_index: int = 0, quiet: bool = False) -> CutCardAnalysisResult:
   """Compute house_edge_from_cut_card over many random shoes."""
@@ -3425,28 +3461,175 @@ def run_simulations_all_cut_cards(
     played_hands, rewards = simulate_many_shoes_all_cut_cards(
         rules, strategy, start_shoe_index, stop_shoe_index, quiet)
 
+  assert played_hands[0] == num_shoes
+  total_played_hands = np.sum(played_hands)
   played_hands = np.cumsum(played_hands)
   rewards = np.cumsum(rewards)
-  # house_edge = -rewards / np.maximum(played_hands, 1)
   house_edge = -rewards / played_hands
   house_edge_from_cut_card = dict(enumerate(house_edge, 1))
-  return CutCardAnalysisResult(rules, strategy, num_shoes, house_edge_from_cut_card)
+  return CutCardAnalysisResult(
+      rules, strategy, num_shoes, total_played_hands, house_edge_from_cut_card
+  )
 
 
 # %%
-if 0:
-  print(run_simulations_all_cut_cards(
-      Rules.make(num_decks=1), Strategy(), 10_000_000, parallel=True))
+def test_all_cut_cards(func: Callable[..., CutCardAnalysisResult], frac: float) -> None:
+  num_shoes = int(get_num_hands() * frac)
+  result = func(Rules.make(num_decks=1), Strategy(), num_shoes, quiet=True)
+  assert 0.95 < result.num_shoes / num_shoes < 1.05
+  v1 = result.house_edge_from_cut_card[1]
+  v5 = result.house_edge_from_cut_card[5]
+  if EFFORT >= 2:
+    assert -0.0004 < v1 < 0.0006, v1  # ~0.013%
+    assert 0.0016 < v5 < 0.0026, v5  # ~0.211%
+
+
+# %%
+test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.001)  # jitting ~5 s.
 
 # %%
 if 0:
   # Jitted with EFFORT=3.
-  hh.prun(lambda: run_simulations_all_cut_cards(
+  hh.prun(lambda: run_simulations_all_cut_cards_cpu(
       Rules.make(num_decks=1), Strategy(), 2_000_000, quiet=True, parallel=False))
 # Prun: tottime    1.380 overall_cumtime
 #         0.686    0.689 numpy.random._generator.Generator.permuted
 #         0.637    0.637 simulate_shoes_all_cut_cards (/tmp/ipykernel:1)
 #         0.002    0.734 create_shoes (/tmp/ipykernel:8)
+
+# %% [markdown]
+# ### All cut-cards using CUDA
+
+# %%
+@cuda.jit(fastmath=True)  # type: ignore[misc]
+def simulate_cut_cards_cuda(
+    rng_states: _CudaArray, shoes_per_thread: int, shoe_size: int, start_shoe_index: int,
+    split_table: _CudaArray, action_table: _CudaArray,
+    rules_blackjack_payout: float, rules_hit_soft17: bool, rules_obo: bool,
+    rules_split_to_num_hands: int, rules_resplit_aces: bool,
+    global_played_hands: _CudaArray, global_rewards: _CudaArray, progress: _CudaArray,
+) -> None:
+  """Compute `(global_played_hands, global_rewards)` at each cut card location."""
+  # pylint: disable=no-value-for-parameter, comparison-with-callable
+  int32, uint32 = numba.int32, numba.uint32
+  shoe_size = int32(shoe_size)
+  assert split_table.ndim == 2 and action_table.ndim == 7
+  thread_index = cuda.grid(1)
+  if thread_index >= len(rng_states):
+    return
+
+  rng = rng_states[thread_index]
+  split_second_cards = cuda.local.array(SPLIT_SECOND_CARDS_SIZE, np.int8)
+  min_num_player_cards = int32(0)
+
+  shared_played_hands = cuda.shared.array(CUDA_MAX_SHOE_SIZE, np.uint64)  # [cutcard_position].
+  shared_rewards = cuda.shared.array(CUDA_MAX_SHOE_SIZE, np.float64)  # [cutcard_position].
+  thread_id = cuda.threadIdx.x  # Index within block.
+  if thread_id == 0:
+    shared_played_hands[:] = 0
+    shared_rewards[:] = 0.0
+  cuda.syncthreads()
+  empty_hand_cards = split_second_cards[:0]
+  shoe = create_unshuffled_shoe_cuda(shoe_size, False, empty_hand_cards)
+
+  # Perform iterations of shuffling the shoe and simulating its played hands.
+  for local_shoe_index in range(int32(shoes_per_thread)):
+    shoe_index = start_shoe_index + thread_index * shoes_per_thread + local_shoe_index
+    shuffle_shoe_cuda(rng, shoe, False, 0)
+
+    # Simulate playing hands on shoe.
+    card_index = uint32(0)
+    while card_index < shoe_size:
+      reward, card_index2 = simulate_hand(
+          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
+          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
+          rules_resplit_aces, split_second_cards)
+      cuda.atomic.add(shared_played_hands, card_index, 1)
+      cuda.atomic.add(shared_rewards, card_index, reward)
+      card_index = card_index2
+
+  cuda.syncthreads()
+  if thread_id == 0:
+    for i in range(shoe_size):
+      cuda.atomic.add(global_played_hands, i, shared_played_hands[i])
+      cuda.atomic.add(global_rewards, i, shared_rewards[i])
+    cuda.atomic.add(progress, 0, 1)
+
+
+# %%
+def run_simulations_all_cut_cards_cuda(
+    rules: Rules, strategy: Strategy, num_shoes: int, *, parallel: bool = True,
+    start_shoe_index: int = 0, quiet: bool = False) -> CutCardAnalysisResult:
+  """Compute house_edge_from_cut_card over many random shoes using CUDA."""
+  del parallel
+  assert rules.num_decks != math.inf and num_shoes > 0 and start_shoe_index >= 0
+  device = cuda.get_current_device()
+  rules = normalize_rules_for_probabilistic_analysis(rules)
+  with hh.timing('create_tables_cuda', enabled=False):
+    d_split_table, d_action_table = create_tables_cuda(rules, strategy)
+  rules_split_to_num_hands = get_int_split_to_num_hands(rules)
+  shoe_size = int(rules.num_decks) * DECK_SIZE
+  assert shoe_size <= CUDA_MAX_SHOE_SIZE
+
+  threads_per_block = get_threads_per_block(shoe_size)
+  BLOCKS_PER_SM = 4
+  target_num_threads = device.MULTIPROCESSOR_COUNT * threads_per_block * BLOCKS_PER_SM
+  shoes_per_thread = min(max(num_shoes // target_num_threads, 1), 2000)
+  num_threads = math.ceil(num_shoes / shoes_per_thread)
+  blocks = math.ceil(num_threads / threads_per_block)
+
+  seed = start_shoe_index
+  d_rng_states = random32.create_xoshiro128p_states(num_threads, seed)
+  d_played_hands = cuda.to_device(np.zeros(shoe_size, np.uint64))  # [0] is cut_card == 1
+  d_rewards = cuda.to_device(np.zeros(shoe_size, np.float64))
+  d_progress = cuda.mapped_array(1, dtype=np.int64)  # https://stackoverflow.com/a/78732662
+  d_progress[0] = 0
+  dynamic_shared_memory_size = threads_per_block * shoe_size
+
+  if 0:
+    print(f'{shoe_size=} {threads_per_block=} {num_shoes=:_}')
+    print(f'{shoes_per_thread=} {num_threads=:_} {blocks=} {dynamic_shared_memory_size=}')
+  event = cuda.event()
+  simulate_cut_cards_cuda[blocks, threads_per_block, 0, dynamic_shared_memory_size](
+      d_rng_states, shoes_per_thread, shoe_size, start_shoe_index,
+      d_split_table, d_action_table,
+      rules.blackjack_payout, rules.hit_soft17, rules.obo,
+      rules_split_to_num_hands, rules.resplit_aces,
+      d_played_hands, d_rewards, d_progress)
+
+  show_cuda_kernel_progress(event, d_progress, blocks, 'sim_cut', quiet)
+
+  # Retrieve and process CUDA kernel results.
+  played_hands = d_played_hands.copy_to_host()
+  rewards = d_rewards.copy_to_host()
+
+  total_played_shoes = played_hands[0]
+  total_played_hands = np.sum(played_hands)
+  played_hands = np.cumsum(played_hands)
+  rewards = np.cumsum(rewards)
+  house_edge = -rewards / played_hands
+  house_edge_from_cut_card = dict(enumerate(house_edge, 1))
+  return CutCardAnalysisResult(
+      rules, strategy, total_played_shoes, total_played_hands, house_edge_from_cut_card
+  )
+
+
+# %%
+if cuda.is_available():
+  test_all_cut_cards(run_simulations_all_cut_cards_cuda, 0.02)
+
+# %%
+if cuda.is_available():
+  write_numba_assembly_code(simulate_cut_cards_cuda, 'simulate_cut_cards_cuda.ptx')
+  if 0:
+    report_cuda_kernel_properties(simulate_cut_cards_cuda)
+
+# %%
+run_simulations_all_cut_cards = run_simulations_all_cut_cards_cpu
+
+if cuda.is_available():
+  run_simulations_all_cut_cards = run_simulations_all_cut_cards_cuda
+
 
 # %% [markdown]
 # ## Hand calculators
@@ -3829,6 +4012,8 @@ def analyze_hand(hand: Hand, rules: Rules, *,
   actions = tuple(actions) or default_actions
   n1 = 10_000_000 if multiprocessing_is_available() else 2_000_000
   num_hands = [n1 // 2, n1, 100_000_000, 1_000_000_000, 10_000_000_000][EFFORT]
+  if cuda.is_available():
+    num_hands *= 10
   if not prefix:
     print(f'# {hand=}  {EFFORT=}')
 
@@ -5976,6 +6161,8 @@ def get_cut_card_analysis(rules: Rules, strategy: Strategy = Strategy()) -> CutC
 
   if RECOMPUTE_CUT_CARD_ANALYSIS:
     num_shoes = [5_000_000, 10_000_000, 100_000_000, 10_000_000_000, 50_000_000_000][EFFORT]
+    if cuda.is_available():
+      num_shoes *= 10
     cut_card_analysis_result = run_simulations_all_cut_cards(rules, strategy, num_shoes)
     if EFFORT >= 3:
       path.write_bytes(pickle.dumps(cut_card_analysis_result))
@@ -6283,14 +6470,14 @@ show_added_global_variables_sorted_by_type()
 
 # %%
 hh.show_notebook_cell_top_times()
-# EFFORT=0: ~45 s (0.8 GiB)
-# EFFORT=1: ~70 s (1.1 GiB) (bottleneck is prob. computations)
+# EFFORT=0: ~52 s (0.8 GiB)
+# EFFORT=1: ~80 s (1.1 GiB) (bottleneck is prob. computations)
 #      Colab: ~250 s with 100% num_hands; max 12 GB mem; table of contents.
 #  SageMaker: ~870 s with 100% num_hands; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
 #     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
 #   DeepNote: ~550 s with 20% num_hands; max 5 GB mem; table of contents; copies GitHub; must login.
-# EFFORT=2: ~650 s (+ ~160 s cut_card_analysis_results) (10.5 GiB; 1.2 GiB GPU)
+# EFFORT=2: ~1020 s (+ ~130 s cut_card_analysis_results) (10.5 GiB; 1.2 GiB GPU)
 #      Colab: timed out.
 #     Kaggle: ~24_000 s
 # EFFORT=3: ~15_000 s (~4.5 hrs) with CUDA (18.5 GiB, 1.2 GiB GPU)
