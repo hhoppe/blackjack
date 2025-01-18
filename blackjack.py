@@ -3297,9 +3297,10 @@ if cuda.is_available():
 
 # %%
 def test_simulation_timings() -> None:
+  """Compare simulation rates for different approaches."""
   args = Rules.make(num_decks=2), Strategy()
   num_hands = 50_000_000
-  f1 = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=False, quiet=True)
+  f1: Any = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=False, quiet=True)
   f1()  # Memoize tables.
   time_numba = hh.get_time(f1)
   print(f'numba:              {int(num_hands / time_numba):>15,} hands/s')
@@ -3474,6 +3475,7 @@ def run_simulations_all_cut_cards_cpu(
 
 # %%
 def test_all_cut_cards(func: Callable[..., CutCardAnalysisResult], frac: float) -> None:
+  """Test the cut-card simulation function `func`."""
   num_shoes = int(get_num_hands() * frac)
   result = func(Rules.make(num_decks=1), Strategy(), num_shoes, quiet=True)
   assert 0.95 < result.num_shoes / num_shoes < 1.05
@@ -6173,7 +6175,7 @@ def get_cut_card_analysis(rules: Rules, strategy: Strategy = Strategy()) -> CutC
 
   else:
     print('Skipping cut-card analysis.')
-    cut_card_analysis_result = CutCardAnalysisResult(rules, strategy, 0, {})
+    cut_card_analysis_result = CutCardAnalysisResult(rules, strategy, 0, 0, {})
 
   return cut_card_analysis_result
 
