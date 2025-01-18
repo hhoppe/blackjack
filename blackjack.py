@@ -149,7 +149,7 @@ def omit_cell_output() -> None:
 
 # %%
 # To archive the notebook, run with value 2.
-EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 2))
+EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 1))
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at lowest precision (~50 s).
 - 1: Fast subset of experiments, at low precision (~80 s).
@@ -231,8 +231,11 @@ def numba_njit(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
 def multiprocessing_is_available() -> bool:
   """Return True if multiprocessing may enable a performance improvement."""
   has_cpu_limit = os.environ.get('CPU_LIMIT') == '1.0'  # Kubernetes on mybinder.org
-  return ('fork' in multiprocessing.get_all_start_methods() and multiprocessing.cpu_count() > 2 and
-          not has_cpu_limit)
+  return (
+      'fork' in multiprocessing.get_all_start_methods()
+      and multiprocessing.cpu_count() > 2
+      and not has_cpu_limit
+  )
 
 
 # %%
@@ -277,8 +280,17 @@ def tqdm_stdout(*args: Any, **kwargs: Any) -> Any:
   if not hh.in_notebook():
     kwargs['disable'] = True
   kwargs |= dict(leave=False)
-  return tqdm.tqdm(*args, file=sys.stdout, ascii=True, mininterval=0.2, smoothing=0.1,
-                   bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]', **kwargs)
+  return tqdm.tqdm(
+      *args,
+      file=sys.stdout,
+      ascii=True,
+      mininterval=0.2,
+      smoothing=0.1,
+      bar_format='{desc}:{percentage:3.0f}% [{elapsed}<{remaining}]',
+      **kwargs,
+  )
+
+
 # Notes: tqdm uses '\r' and overwrites with spaces (annoying for copy-paste);
 # jupyterlab does not correctly handle more than two backspaces ('\b');
 # `tqdm.notebook.tqdm()`, which displays HTML, does not work with multiprocessing and does not
@@ -324,6 +336,7 @@ hh.adjust_jupyterlab_markdown_width()
 # The casino listed with the lowest house edge is:
 # "Caesars Palace; 0.26%; 6 decks; s17,ds,ls,rsa". <br/>
 # This corresponds to `Rules.make(hit_soft17=False, resplit_aces=True)`.
+
 
 # %%
 # "In games involving a shoe, about 3/4 of the deck is used before the cut card is reached and
@@ -421,13 +434,26 @@ class Rules:
 
 
 # %%
-BEST_RULES = Rules(num_decks=1, split_to_num_hands=math.inf, resplit_aces=True,
-                   hit_split_aces=True, double_split_aces=True, cut_card=0)
+BEST_RULES = Rules(
+    num_decks=1,
+    split_to_num_hands=math.inf,
+    resplit_aces=True,
+    hit_split_aces=True,
+    double_split_aces=True,
+    cut_card=0,
+)
 """Combination of rules with the lowest house edge (which is in fact negative)."""
 
-WORST_RULES = Rules(num_decks=math.inf, blackjack_payout=1, hit_soft17=False, obo=False,
-                    late_surrender=False, double_min_total=10, double_after_split=False,
-                    split_to_num_hands=2)
+WORST_RULES = Rules(
+    num_decks=math.inf,
+    blackjack_payout=1,
+    hit_soft17=False,
+    obo=False,
+    late_surrender=False,
+    double_min_total=10,
+    double_after_split=False,
+    split_to_num_hands=2,
+)
 """Combination of rules with the highest house edge."""
 
 omit_cell_output()
@@ -507,6 +533,7 @@ test_action()
 # %%
 class Attention(enum.Enum):
   """Aspects of the player and dealer cards that condition the optimal action."""
+
   # Other ideas for class name: Scope, Inspect, Feature, Heed, Observe, Mull, Track.
 
   TOTAL_OF_CARDS = enum.auto()
@@ -798,35 +825,48 @@ def generate_all_initial_cards() -> Iterator[Cards]:
 
 
 # %%
-check_eq(list(generate_hands_totaling(8, Rules(num_decks=1))),
-         [(2, 2, 2, 2), (2, 2, 4), (2, 3, 3), (2, 6), (3, 5), (4, 4)])
+check_eq(
+    list(generate_hands_totaling(8, Rules(num_decks=1))),
+    [(2, 2, 2, 2), (2, 2, 4), (2, 3, 3), (2, 6), (3, 5), (4, 4)],
+)
 
-check_eq(list(generate_hands_totaling(21, Rules(num_decks=1)))[:2],
-         [(1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3), (1, 1, 1, 1, 2, 2, 2, 2, 3, 6)])
+check_eq(
+    list(generate_hands_totaling(21, Rules(num_decks=1)))[:2],
+    [(1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3), (1, 1, 1, 1, 2, 2, 2, 2, 3, 6)],
+)
 
-check_eq(list(generate_hands_totaling(21, Rules(num_decks=1)))[-7:],
-         [(5, 5, 5, 6), (5, 6, 10), (5, 7, 9), (5, 8, 8), (6, 6, 9), (6, 7, 8), (7, 7, 7)])
+check_eq(
+    list(generate_hands_totaling(21, Rules(num_decks=1)))[-7:],
+    [(5, 5, 5, 6), (5, 6, 10), (5, 7, 9), (5, 8, 8), (6, 6, 9), (6, 7, 8), (7, 7, 7)],
+)
 
 check_eq(list(generate_hands_totaling(21, Rules(num_decks=8)))[:2], [(1,) * 11, (1,) * 21])
 
 check_eq(sum(1 for _ in generate_hands_totaling(21, Rules(num_decks=1))), 416)
 
-check_eq(list(generate_all_hands(Rules(num_decks=1)))[:20],
-         [(2, 2), (2, 3), (2, 2, 2), (2, 4), (3, 3), (2, 2, 3), (2, 5), (3, 4), (2, 2, 2, 2),
-          (2, 2, 4), (2, 3, 3), (2, 6), (3, 5), (4, 4), (2, 2, 2, 3), (2, 2, 5), (2, 3, 4),
-          (2, 7), (3, 3, 3), (3, 6)])
+check_eq(
+    list(generate_all_hands(Rules(num_decks=1)))[:20],
+    [(2, 2), (2, 3), (2, 2, 2), (2, 4), (3, 3), (2, 2, 3), (2, 5), (3, 4), (2, 2, 2, 2)]
+    + [(2, 2, 4), (2, 3, 3), (2, 6), (3, 5), (4, 4), (2, 2, 2, 3), (2, 2, 5), (2, 3, 4), (2, 7)]
+    + [(3, 3, 3), (3, 6)],
+)
 
-check_eq(list(generate_all_hands(Rules(num_decks=1)))[-20:],
-         [(3, 5, 5, 8), (3, 5, 6, 7), (3, 6, 6, 6), (3, 8, 10), (3, 9, 9), (4, 4, 4, 4, 5),
-          (4, 4, 4, 9), (4, 4, 5, 8), (4, 4, 6, 7), (4, 5, 5, 7), (4, 5, 6, 6), (4, 7, 10),
-          (4, 8, 9), (5, 5, 5, 6), (5, 6, 10), (5, 7, 9), (5, 8, 8), (6, 6, 9), (6, 7, 8),
-          (7, 7, 7)])
+check_eq(
+    list(generate_all_hands(Rules(num_decks=1)))[-20:],
+    [(3, 5, 5, 8), (3, 5, 6, 7), (3, 6, 6, 6), (3, 8, 10), (3, 9, 9), (4, 4, 4, 4, 5)]
+    + [(4, 4, 4, 9), (4, 4, 5, 8), (4, 4, 6, 7), (4, 5, 5, 7), (4, 5, 6, 6), (4, 7, 10), (4, 8, 9)]
+    + [(5, 5, 5, 6), (5, 6, 10), (5, 7, 9), (5, 8, 8), (6, 6, 9), (6, 7, 8), (7, 7, 7)],
+)
 
 # %%
 # Surprisingly, there are few unique hands in blackjack: 2008 for 1 deck, and 3072 maximum.
-check_eq({num_decks: number_of_unique_hands(Rules(num_decks=num_decks))
-          for num_decks in [1, 2, 4, 6, 8, math.inf]},
-         {1: 2008, 2: 2796, 4: 3060, 6: 3072, 8: 3072, math.inf: 3072})
+check_eq(
+    {
+        num_decks: number_of_unique_hands(Rules(num_decks=num_decks))
+        for num_decks in [1, 2, 4, 6, 8, math.inf]
+    },
+    {1: 2008, 2: 2796, 4: 3060, 6: 3072, 8: 3072, math.inf: 3072},
+)
 
 # The C++ program at https://www.bjstrat.net/playerHands.html reports 3082 possible non-busted
 # hands.  It includes single-card hands, which we do not.  Because there are 10 single-card hands,
@@ -918,8 +958,11 @@ def two_cards_reproducing_total(total: int, soft: bool, dealer1: Card) -> tuple[
 
 # %%
 @functools.cache
-def get_canonical_hand_with_initial_cards_and_total(initial_cards: tuple[Card, Card],
-                                                    total: int, soft: bool) -> Cards:
+def get_canonical_hand_with_initial_cards_and_total(
+    initial_cards: tuple[Card, Card],
+    total: int,
+    soft: bool,
+) -> Cards:
   """Return cards with specified initial two cards, total, and softness."""
   assert len(initial_cards) == 2
   total2, soft2 = combine_cards(initial_cards)
@@ -931,11 +974,16 @@ def get_canonical_hand_with_initial_cards_and_total(initial_cards: tuple[Card, C
 
   assert remainder >= 1
   cards = initial_cards + (
-      (remainder, 10) if remainder <= 10 and soft2 and not soft else
-      (remainder,) if remainder <= 10 else
-      (1,) if remainder == 11 and soft else
-      (1, remainder - 11) if soft else
-      (remainder - 10, 10))
+      (remainder, 10)
+      if remainder <= 10 and soft2 and not soft
+      else (remainder,)
+      if remainder <= 10
+      else (1,)
+      if remainder == 11 and soft
+      else (1, remainder - 11)
+      if soft
+      else (remainder - 10, 10)
+  )
 
   if 0:
     assert all(1 <= card <= 10 for card in cards), (initial_cards, total, soft)
@@ -1012,8 +1060,11 @@ def add_recent(recent_cards: RecentCards, new_card: Card) -> RecentCards:
 
 
 # %%
-def card_probabilities(recent_cards: RecentCards, rules: Rules,
-                       postpeek_dealer1: Card | None) -> dict[Card, float]:
+def card_probabilities(
+    recent_cards: RecentCards,
+    rules: Rules,
+    postpeek_dealer1: Card | None,
+) -> dict[Card, float]:
   """Return a mapping from card values (1-10) to their probabilities given recently seen cards,
   e.g., (dealer1, card1, card2, ...).  For cards drawn in player action, set postpeek_dealer1;
   if in (1, 10) and rules.obo, we bias the probabilities using the knowledge that dealer does
@@ -1026,8 +1077,11 @@ def card_probabilities(recent_cards: RecentCards, rules: Rules,
 
 # %%
 @functools.lru_cache(maxsize=5_000_000)
-def card_probabilities_helper(recent_cards: RecentCards, num_decks: float,
-                              postpeek_dealer1_int: Card) -> dict[Card, float]:
+def card_probabilities_helper(
+    recent_cards: RecentCards,
+    num_decks: float,
+    postpeek_dealer1_int: Card,
+) -> dict[Card, float]:
   """Return a mapping from card values (1-10) to their probabilities.  We conventionally set
   `postpeek_dealer1_int=2` if the dealer hole card does not matter."""
   assert 1 <= postpeek_dealer1_int <= 10
@@ -1048,8 +1102,10 @@ def card_probabilities_helper(recent_cards: RecentCards, num_decks: float,
   if postpeek_dealer1_int in (1, 10):
     # When dealer1 shows 1 or 10, the dealer2 card has nonuniform probability due to the constraint
     # that the dealer has non-bj, and this affects the distribution of player-drawn cards.
-    legal_dealer2 = {1: (2, 3, 4, 5, 6, 7, 8, 9, 1),
-                     10: (2, 3, 4, 5, 6, 7, 8, 9, 10)}[postpeek_dealer1_int]
+    legal_dealer2 = {
+        1: (2, 3, 4, 5, 6, 7, 8, 9, 1),
+        10: (2, 3, 4, 5, 6, 7, 8, 9, 10),
+    }[postpeek_dealer1_int]
     count_of_legal = sum(count_of_card[card] for card in legal_dealer2)
     for card in legal_dealer2:
       count_of_card[card] -= count_of_card[card] / count_of_legal
@@ -1080,8 +1136,9 @@ test_card_probabilities()
 def card_probabilities_for_state(state: State, rules: Rules) -> dict[Card, float]:
   """Return a mapping from card values (1-10) to their probabilities given recently seen cards."""
   player_cards, dealer1, split_cards = state
-  recent_cards = (None if rules.num_decks == math.inf else
-                  tuple(sorted((*player_cards, dealer1, *split_cards))))
+  recent_cards = (
+      None if rules.num_decks == math.inf else tuple(sorted((*player_cards, dealer1, *split_cards)))
+  )
   postpeek_dealer1 = 2 if not rules.obo else dealer1
   return card_probabilities_helper(recent_cards, rules.num_decks, postpeek_dealer1)
 
@@ -1089,8 +1146,10 @@ def card_probabilities_for_state(state: State, rules: Rules) -> dict[Card, float
 # %%
 def test_card_probabilities_for_state() -> None:
   """Check `card_probabilities_for_state` function."""
-  check_eq(card_probabilities_for_state(((3, 3), 3, ()), Rules(num_decks=1))[3],
-           1 / (DECK_SIZE - 3))
+  check_eq(
+      card_probabilities_for_state(((3, 3), 3, ()), Rules(num_decks=1))[3],
+      1 / (DECK_SIZE - 3),
+  )
   assert 3 not in card_probabilities_for_state(((3, 3, 3), 3, ()), Rules(num_decks=1))
   assert 3 not in card_probabilities_for_state(((3, 7), 3, (3, 3, 5, 8)), Rules(num_decks=1))
 
@@ -1138,13 +1197,20 @@ def reward_after_dealer_upcard(state: State, rules: Rules) -> float:
     return -1.0  # Player busts and therefore loses.
   recent_cards = make_recent_from_state(state, rules)
   return reward_after_dealer_upcard_helper(
-      player_total, dealer1, recent_cards, rules.num_decks, rules.hit_soft17, rules.obo)
+      player_total, dealer1, recent_cards, rules.num_decks, rules.hit_soft17, rules.obo
+  )
 
 
 # %%
 @functools.lru_cache(maxsize=10_000_000)
-def reward_after_dealer_upcard_helper(player_total: int, dealer1: Card, recent_cards: RecentCards,
-                                      num_decks: float, hit_soft17: bool, obo: bool) -> float:
+def reward_after_dealer_upcard_helper(
+    player_total: int,
+    dealer1: Card,
+    recent_cards: RecentCards,
+    num_decks: float,
+    hit_soft17: bool,
+    obo: bool,
+) -> float:
   """Return the expected reward at the end of player action; assume the player does not have
   blackjack; handle dealer blackjack if not OBO else ignore it."""
   # assert 4 <= player_total <= 21 and 1 <= dealer1 <= 10
@@ -1162,7 +1228,8 @@ def reward_after_dealer_upcard_helper(player_total: int, dealer1: Card, recent_c
     elif dealer_total < 17 or (dealer_total == 17 and dealer_soft and hit_soft17):  # Dealer hits.
       recent_cards2 = add_recent(recent_cards, dealer2)
       reward = reward_after_dealer_hits(
-          player_total, dealer_total, dealer_soft, recent_cards2, num_decks, hit_soft17)
+          player_total, dealer_total, dealer_soft, recent_cards2, num_decks, hit_soft17
+      )
     else:  # Dealer stands.
       # Player wins, pushes, or loses.
       reward = 1.0 if player_total > dealer_total else 0.0 if player_total == dealer_total else -1.0
@@ -1175,9 +1242,14 @@ def reward_after_dealer_upcard_helper(player_total: int, dealer1: Card, recent_c
 
 # %%
 @functools.lru_cache(maxsize=22_000_000)  # Larger than EFFORT=3 single Rules.
-def reward_after_dealer_hits(player_total: int, dealer_total: int, dealer_soft: bool,
-                             recent_cards: RecentCards, num_decks: float,
-                             hit_soft17: bool) -> float:
+def reward_after_dealer_hits(
+    player_total: int,
+    dealer_total: int,
+    dealer_soft: bool,
+    recent_cards: RecentCards,
+    num_decks: float,
+    hit_soft17: bool,
+) -> float:
   """Return the expected reward after dealer hits with specified total (given that neither
   player nor dealer has blackjack)."""
   # assert 4 <= player_total <= 21 and 4 <= dealer_total <= 21
@@ -1189,7 +1261,8 @@ def reward_after_dealer_hits(player_total: int, dealer_total: int, dealer_soft: 
     elif dealer_total2 < 17 or (dealer_total2 == 17 and dealer_soft2 and hit_soft17):  # Hits.
       recent_cards2 = add_recent(recent_cards, card)
       reward = reward_after_dealer_hits(
-          player_total, dealer_total2, dealer_soft2, recent_cards2, num_decks, hit_soft17)
+          player_total, dealer_total2, dealer_soft2, recent_cards2, num_decks, hit_soft17
+      )
     else:  # Dealer stands.
       # Player wins, pushes, or loses.
       reward = 1.0 if player_total > dealer_total2 else 0 if player_total == dealer_total2 else -1.0
@@ -1203,8 +1276,12 @@ def reward_after_dealer_hits(player_total: int, dealer_total: int, dealer_soft: 
 
 
 # %%
-def reward_for_initial_hand(state: State, rules: Rules, strategy: Strategy,
-                            action: Action) -> float:
+def reward_for_initial_hand(
+    state: State,
+    rules: Rules,
+    strategy: Strategy,
+    action: Action,
+) -> float:
   """Compute the expected reward for the first action.  Handle player blackjack, and if OBO, dealer
   blackjack as well.  (If not OBO, dealer bj is handled in reward_after_dealer_upcard().)"""
   (card1, card2), dealer1, _ = state
@@ -1237,8 +1314,9 @@ def action_allowed(state: State, rules: Rules, action: Action) -> bool:
 
   match action:
     case Action.DOUBLE:
-      if (not is_first_action or
-          (rules.double_min_total > 0 and (player_soft or player_total < rules.double_min_total))):
+      if not is_first_action or (
+          rules.double_min_total > 0 and (player_soft or player_total < rules.double_min_total)
+      ):
         return False
 
     case Action.SPLIT:
@@ -1263,8 +1341,9 @@ def reward_for_action(state: State, rules: Rules, strategy: Strategy, action: Ac
   The reward does not account for player blackjack (and if rules.obo, dealer blackjack)."""
   player_cards, _, _ = state
   is_first_action = len(player_cards) == 2
-  if (not action_allowed(state, rules, action) or
-      (is_first_action and action not in strategy.first_actions)):
+  if not action_allowed(state, rules, action) or (
+      is_first_action and action not in strategy.first_actions
+  ):
     return DISALLOWED
 
   match action:
@@ -1392,8 +1471,11 @@ def reward_for_split(state: State, rules: Rules, strategy: Strategy) -> float:
 
 
 # %%
-def best_reward_estimate_and_action(state: State, rules: Rules,
-                                    strategy: Strategy) -> tuple[float, Action]:
+def best_reward_estimate_and_action(
+    state: State,
+    rules: Rules,
+    strategy: Strategy,
+) -> tuple[float, Action]:
   """Determine the action with the best expected reward under the restricted state of
   `strategy.attention`.  Return the action and the reward estimated using the restricted state.
 
@@ -1418,9 +1500,11 @@ def best_reward_estimate_and_action(state: State, rules: Rules,
     args = state, rules, strategy
     best_reward, best_action = max((reward_for_action(*args, action), action) for action in actions)
 
-  elif (strategy.attention is Attention.HAND_CARDS_ONLY or
-        is_first_action_on_pair or
-        (strategy.attention is not Attention.TOTAL_OF_CARDS and is_first_action)):
+  elif (
+      strategy.attention is Attention.HAND_CARDS_ONLY
+      or is_first_action_on_pair
+      or (strategy.attention is not Attention.TOTAL_OF_CARDS and is_first_action)
+  ):
     state = player_cards, dealer1, ()  # Discard all split_cards (cards from prior splits).
     args = state, rules, strategy
     best_reward, best_action = max((reward_for_action(*args, action), action) for action in actions)
@@ -1435,17 +1519,18 @@ def best_reward_estimate_and_action(state: State, rules: Rules,
     args = state, rules, strategy
     best_reward, best_action = max((reward_for_action(*args, action), action) for action in actions)
 
-  elif (strategy.attention is Attention.INITIAL_CARDS_OR_TOTAL or
-        not is_first_action):
+  elif strategy.attention is Attention.INITIAL_CARDS_OR_TOTAL or not is_first_action:
     assert not is_first_action
     player_total, player_soft = combine_cards(player_cards)
     best_reward, best_action = best_reward_estimate_and_action_using_non_first_total(
-        player_total, player_soft, dealer1, rules, strategy)
+        player_total, player_soft, dealer1, rules, strategy
+    )
 
   elif strategy.attention is Attention.TOTAL_OF_CARDS:
     assert is_first_action and not is_first_action_on_pair
     best_reward, best_action = best_reward_estimate_and_action_using_total_of_cards(
-      state, rules, strategy)
+        state, rules, strategy
+    )
 
   else:
     raise ValueError(strategy.attention)
@@ -1457,21 +1542,29 @@ def best_reward_estimate_and_action(state: State, rules: Rules,
 # %%
 @functools.cache
 def best_reward_estimate_and_action_using_non_first_total(
-    player_total: int, player_soft: bool, dealer1: Card,
-    rules: Rules, strategy: Strategy) -> tuple[float, Action]:
+    player_total: int,
+    player_soft: bool,
+    dealer1: Card,
+    rules: Rules,
+    strategy: Strategy,
+) -> tuple[float, Action]:
   """We memoize this particular case of using Attention.INITIAL_CARDS_OR_TOTAL."""
   actions = {Action.STAND, Action.HIT}
   strategy2 = dataclasses.replace(strategy, first_actions=ACTIONS)
   args = player_total, player_soft, dealer1, rules, strategy2
-  best_reward, best_action = max((reward_for_basic_strategy_total(*args, action), action)
-                                 for action in actions)
+  best_reward, best_action = max(
+      (reward_for_basic_strategy_total(*args, action), action) for action in actions
+  )
   return best_reward, best_action
 
 
 # %%
 @functools.cache
 def best_reward_estimate_and_action_using_total_of_cards(
-    state: State, rules: Rules, strategy: Strategy) -> tuple[float, Action]:
+    state: State,
+    rules: Rules,
+    strategy: Strategy,
+) -> tuple[float, Action]:
   """We memoize this particular case of using Attention.TOTAL_OF_CARDS."""
   player_cards, dealer1, _ = state
   # We can assume: assert is_first_action and not is_first_action_on_pair
@@ -1479,15 +1572,17 @@ def best_reward_estimate_and_action_using_total_of_cards(
   player_total, player_soft = combine_cards(player_cards)
   strategy2 = dataclasses.replace(strategy, first_actions=ACTIONS)
   args = player_total, player_soft, dealer1, rules, strategy2
-  best_reward, best_action = max((reward_for_basic_strategy_total(*args, action), action)
-                                 for action in actions if action_allowed(state, rules, action))
+  best_reward, best_action = max(
+      (reward_for_basic_strategy_total(*args, action), action)
+      for action in actions
+      if action_allowed(state, rules, action)
+  )
   return best_reward, best_action
 
 
 # %%
 @functools.lru_cache(maxsize=10_000_000)  # Larger than EFFORT=3 single Rules.
-def best_reward_and_action(state: State, rules: Rules,
-                           strategy: Strategy) -> tuple[float, Action]:
+def best_reward_and_action(state: State, rules: Rules, strategy: Strategy) -> tuple[float, Action]:
   """Determine the action with the best expected reward.  Return both the reward and the action.
 
   Note that best_reward_and_action() evaluates the action rewards using reward_for_action()
@@ -1517,8 +1612,12 @@ def get_best_action(state: State, rules: Rules, strategy: Strategy) -> Action:
 # %%
 if 0:
   with temporary_effort(1):
-    hh.print_time(lambda: reward_for_split(
-        ((10, 10), 8, ()), Rules(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY), max_repeat=1)
+    hh.print_time(
+        lambda: reward_for_split(
+            ((10, 10), 8, ()), Rules(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY
+        ),
+        max_repeat=1,
+    )
   # Times are * 100 for all possible splits (card1 and dealer1).
   # For 1 deck:
   # EFFORT=0: 170 µs.
@@ -1534,17 +1633,28 @@ if 0:
 # %%
 if 0:
   with temporary_effort(1):
-    hh.prun(lambda: reward_for_split(
-        ((2, 2), 8, ()), Rules(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY), top=80)
+    hh.prun(
+        lambda: reward_for_split(
+            ((2, 2), 8, ()), Rules(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY
+        ),
+        top=80,
+    )
 
 
 # %% [markdown]
 # ### Basic strategy
 
+
 # %%
 @functools.cache
-def reward_for_basic_strategy_total(player_total: int, player_soft: bool, dealer1: Card,
-                                    rules: Rules, strategy: Strategy, action: Action) -> float:
+def reward_for_basic_strategy_total(
+    player_total: int,
+    player_soft: bool,
+    dealer1: Card,
+    rules: Rules,
+    strategy: Strategy,
+    action: Action,
+) -> float:
   """Compute the per-action expected reward for each cell (player_total, dealer1) of the two
   basic-strategy tables (player_soft=[False,True])."""
   assert 1 <= dealer1 <= 10
@@ -1562,8 +1672,11 @@ def reward_for_basic_strategy_total(player_total: int, player_soft: bool, dealer
   sum_reward = 0.0
   sum_prob = 0.0
   recent_cards = make_recent((dealer1,), rules)
-  card1_candidates = (range(1, 2) if player_soft or player_total == 21 else
-                      range(max(2, player_total - 10), min(10, player_total - 2) + 1))
+  card1_candidates = (
+      range(1, 2)
+      if player_soft or player_total == 21
+      else range(max(2, player_total - 10), min(10, player_total - 2) + 1)
+  )
 
   for card1 in card1_candidates:
     prob1 = card_probabilities(recent_cards, rules, None)[card1]
@@ -1610,7 +1723,8 @@ def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict
     return string
 
   strategy_action2 = dataclasses.replace(
-      strategy, first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT}))
+      strategy, first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT})
+  )
   for player_soft in [False, True]:
     player_total_base = 13 if player_soft else 5
     shape = 22 - player_total_base, 10  # (5-21, 2-"11") or (13-21, 2-"11")
@@ -1629,10 +1743,12 @@ def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict
 
   table = np.empty((10, 10), object)  # (2-"11", 2-"11")
   strategy_action2 = dataclasses.replace(
-      strategy, first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT,
-                                                                  Action.SPLIT}))
+      strategy,
+      first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT, Action.SPLIT}),
+  )
   strategy_action3 = dataclasses.replace(
-      strategy, first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT}))
+      strategy, first_actions=frozenset(strategy.first_actions & {Action.STAND, Action.HIT})
+  )
   for card in range(1, 11):
     for dealer1 in range(1, 11):
       state = (card, card), dealer1, ()
@@ -1667,8 +1783,10 @@ if 0:
 def show_basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> None:
   """Show 3 tables of optimal actions for the basic strategy."""
   print(rules)
-  print('Legend: (S)stand, (H)hit, (D)double, (P)split, (U)surrender;'
-        ' (Xy) means do X if allowed else Y.')
+  print(
+      'Legend: (S)stand, (H)hit, (D)double, (P)split, (U)surrender;'
+      ' (Xy) means do X if allowed else Y.'
+  )
   tables = basic_strategy_tables(rules, strategy)
   gridspec = {'width_ratios': [1, 1, 1]}  # Same-width subplots.
   fig, axs = plt.subplots(1, 3, figsize=(12, 8), gridspec_kw=gridspec)
@@ -1735,7 +1853,8 @@ def verify_action_tables(rules: Rules, expected: Mapping[str, str]) -> None:
 
 # %%
 EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
-    'hard': textwrap.dedent("""\
+    'hard': textwrap.dedent(
+        """\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -1752,8 +1871,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'soft': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'soft': textwrap.dedent(
+        """\
         [[H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -1762,8 +1883,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
          [Ds  Ds  Ds  Ds  Ds  S   S   H   H   H  ]
          [S   S   S   S   Ds  S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'pair': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'pair': textwrap.dedent(
+        """\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [H   H   H   Ph  Ph  H   H   H   H   H  ]
@@ -1773,12 +1896,14 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Uph]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
+    ),
 }
 """Expected tables for "dealer hits on soft 17" with 6 decks."""
 
 EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
-    'hard': textwrap.dedent("""\
+    'hard': textwrap.dedent(
+        """\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -1795,8 +1920,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'soft': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'soft': textwrap.dedent(
+        """\
         [[H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -1805,8 +1932,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [S   Ds  Ds  Ds  Ds  S   S   H   H   H  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'pair': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'pair': textwrap.dedent(
+        """\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [H   H   H   Ph  Ph  H   H   H   H   H  ]
@@ -1816,7 +1945,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Ph ]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
+    ),
 }
 """Expected tables for "dealer stands on soft 17" with 6 decks."""
 
@@ -1824,7 +1954,8 @@ omit_cell_output()
 
 # %%
 EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
-    'hard': textwrap.dedent("""\
+    'hard': textwrap.dedent(
+        """\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -1841,8 +1972,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'soft': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'soft': textwrap.dedent(
+        """\
         [[H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -1851,8 +1984,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
          [S   Ds  Ds  Ds  Ds  S   S   H   H   H  ]
          [S   S   S   S   Ds  S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'pair': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'pair': textwrap.dedent(
+        """\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  Ph  H   H   H  ]
          [H   H   Ph  Ph  Ph  H   H   H   H   H  ]
@@ -1862,12 +1997,14 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Ph ]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   Ps ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
+    ),
 }
 """Expected tables for "dealer hits on soft 17" with 1 deck."""
 
 EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
-    'hard': textwrap.dedent("""\
+    'hard': textwrap.dedent(
+        """\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -1884,8 +2021,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'soft': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'soft': textwrap.dedent(
+        """\
         [[H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -1894,8 +2033,10 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [S   Ds  Ds  Ds  Ds  S   S   H   H   S  ]
          [S   S   S   S   Ds  S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""),
-    'pair': textwrap.dedent("""\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""
+    ),
+    'pair': textwrap.dedent(
+        """\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  Ph  H   H   H  ]
          [H   H   Ph  Ph  Ph  H   H   H   H   H  ]
@@ -1905,7 +2046,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Ph ]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
+    ),
 }
 """Expected tables for "dealer stands on soft 17" with 1 deck."""
 
@@ -1915,19 +2057,23 @@ omit_cell_output()
 EXPECTED_COMPOSITION_DEPENDENT_DIFFERENCES = {
     6: [(((7, 8), 10), Action.SURRENDER, Action.HIT)],
     4: [(((7, 8), 10), Action.SURRENDER, Action.HIT)],
-    2: [(((2, 10), 4), Action.STAND, Action.HIT),
+    2: [
+        (((2, 10), 4), Action.STAND, Action.HIT),
         (((4, 8), 3), Action.HIT, Action.STAND),
         (((5, 7), 3), Action.HIT, Action.STAND),
         (((7, 8), 1), Action.SURRENDER, Action.HIT),
-        (((7, 8), 10), Action.SURRENDER, Action.HIT)],
-    1: [(((2, 6), 6), Action.DOUBLE, Action.HIT),
+        (((7, 8), 10), Action.SURRENDER, Action.HIT),
+    ],
+    1: [
+        (((2, 6), 6), Action.DOUBLE, Action.HIT),
         (((2, 10), 4), Action.STAND, Action.HIT),
         (((4, 8), 3), Action.HIT, Action.STAND),
         (((5, 7), 3), Action.HIT, Action.STAND),
         (((5, 10), 10), Action.HIT, Action.SURRENDER),
         (((6, 9), 10), Action.HIT, Action.SURRENDER),
         (((7, 8), 1), Action.SURRENDER, Action.HIT),
-        (((8, 9), 1), Action.SURRENDER, Action.STAND)],
+        (((8, 9), 1), Action.SURRENDER, Action.STAND),
+    ],
 }
 """Expected mapping from the per-shoe number of decks to a list of (card1, card2, dealer1,
 bs_action, cd_action) tuples for which the optimal basic-strategy (bs) action differs from
@@ -2098,8 +2244,8 @@ def simulate_hand_shoes_creator(hand: Hand, rules: Rules) -> CreateShoes:
     rng = np.random.default_rng(seed)
     # rng = np.random.Generator(np.random.PCG64(seed=0).jumped(seed))
     shoes = np.empty((num_shoes, shoe_size), dtype)
-    beg_shoes = shoes[:, :len(hand_cards)]
-    end_shoes = shoes[:, len(hand_cards):]
+    beg_shoes = shoes[:, : len(hand_cards)]
+    end_shoes = shoes[:, len(hand_cards) :]
     beg_shoes[:] = hand_cards
 
     if rules.num_decks == math.inf:
@@ -2114,7 +2260,7 @@ def simulate_hand_shoes_creator(hand: Hand, rules: Rules) -> CreateShoes:
         rng.permuted(end_shoes, axis=1, out=end_shoes)
 
     if len(player_cards) > 2:  # Insert random dealer2 card in front of player_cards[2].
-      subarray = shoes[:, 3:len(hand_cards) + 1]
+      subarray = shoes[:, 3 : len(hand_cards) + 1]
       subarray[:] = np.roll(subarray, 1, axis=1)
 
     return shoes
@@ -2141,8 +2287,11 @@ if 0:
 
 # %%
 if 0:
-  hh.print_time(lambda: [simulate_hand_shoes_creator(
-      ((2, 3), 4), Rules(num_decks=1))(1000, 0) for _ in range(100)])
+  hh.print_time(
+      lambda: [
+          simulate_hand_shoes_creator(((2, 3), 4), Rules(num_decks=1))(1000, 0) for _ in range(100)
+      ]
+  )
 # 38.8 ms for default int64; 59.5 for int32; 61.5 for int16; 55.4 for uint8.
 
 # %% [markdown]
@@ -2151,29 +2300,43 @@ if 0:
 
 # %%
 def generate_possible_action_table_indices(
-    rules: Rules, strategy: Strategy) -> Iterator[
-    tuple[tuple[int, ...], Card, Card, Card, bool, bool, int, bool]]:
+    rules: Rules,
+    strategy: Strategy,
+) -> Iterator[tuple[tuple[int, ...], Card, Card, Card, bool, bool, int, bool]]:
   """Yield table coordinates that correspond to possible hands."""
   for index in np.ndindex(10, 10, 10, 2, 2, 18, 2):
     card1, card2, dealer1, have_split, is_first_action, player_total, player_soft = (
-        index[0] + 1, index[1] + 1, index[2] + 1, bool(index[3]), bool(index[4]),
-        index[5] + 4, bool(index[6]))
+        index[0] + 1,
+        index[1] + 1,
+        index[2] + 1,
+        bool(index[3]),
+        bool(index[4]),
+        index[5] + 4,
+        bool(index[6]),
+    )
     # For have_split, we must keep the (card1, card2) order because card1 is used for split_aces.
     player_total2, player_soft2 = combine_two_cards(card1, card2)
-    impossible = (
-      ((not have_split and card1 > card2) or
-       (have_split and (Action.SPLIT not in strategy.first_actions or
-                        rules.split_to_num_hands == 0))) or
-      (is_first_action and
-       (player_total, player_soft) != (player_total2, player_soft2)) or
-      (not is_first_action and
-       (player_total2 - (10 if player_soft2 else 0) >= player_total or
-        (player_total <= 12 and player_soft) or
-        (not player_soft2 and player_soft and player_total < player_total2 + 11) or
-        (player_soft2 and not player_soft and player_total < 12) or
-        (player_soft2 and player_soft and player_total <= player_total2) or
-        (not player_soft2 and not player_soft and player_total2 + 1 == player_total and
-         player_total < 12))))
+    impossible = False
+    if have_split:
+      impossible |= Action.SPLIT not in strategy.first_actions or rules.split_to_num_hands == 0
+    else:
+      impossible |= card1 > card2
+    if is_first_action:
+      impossible |= (player_total, player_soft) != (player_total2, player_soft2)
+    else:
+      impossible |= (
+          player_total2 - (10 if player_soft2 else 0) >= player_total
+          or (player_total <= 12 and player_soft)
+          or (not player_soft2 and player_soft and player_total < player_total2 + 11)
+          or (player_soft2 and not player_soft and player_total < 12)
+          or (player_soft2 and player_soft and player_total <= player_total2)
+          or (
+              not player_soft2
+              and not player_soft
+              and player_total2 + 1 == player_total
+              and player_total < 12
+          )
+      )
     if not impossible:
       yield index, card1, card2, dealer1, have_split, is_first_action, player_total, player_soft
 
@@ -2194,8 +2357,8 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
   # Create the 7D array; ~17_950 out of 144_000 entries correspond to possible hands.
   possible_indexes = list(generate_possible_action_table_indices(rules, strategy))
   action_table = np.full((10, 10, 10, 2, 2, 18, 2), IMPOSSIBLE_ACTION_VALUE, np.uint8)
-  for index, card1, card2, dealer1, have_split, is_first_action, player_total, player_soft in (
-      tqdm_stdout(possible_indexes, desc='table', disable=quiet)):
+  for tup in tqdm_stdout(possible_indexes, desc='table', disable=quiet):
+    index, card1, card2, dealer1, have_split, is_first_action, player_total, player_soft = tup
     card1_was_ace = card1 == 1
     split_cards = (card1,) if have_split else ()  # Paired card that contributed to the split hand.
     card1, card2 = order_cards(card1, card2)
@@ -2221,7 +2384,8 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
       strategy2 = dataclasses.replace(strategy, first_actions=ACTIONS)
       if strategy2.attention is Attention.INITIAL_CARDS_AND_TOTAL:
         player_cards = get_canonical_hand_with_initial_cards_and_total(
-            (card1, card2), player_total, player_soft)
+            (card1, card2), player_total, player_soft
+        )
         assert len(player_cards) > 2
         state = player_cards, dealer1, split_cards
         action = get_best_action(state, rules, strategy2)
@@ -2229,8 +2393,11 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
         assert strategy2.attention is Attention.TOTAL_OF_CARDS
         args = player_total, player_soft, dealer1, rules, strategy2
         actions = frozenset({Action.STAND, Action.HIT})
-        action = max((reward_for_basic_strategy_total(*args, action), action)
-                     for action in actions)[1]
+        # # ??
+        # action = max(actions, key=lambda action: reward_for_basic_strategy_total(*args, action))
+        action = max(
+            (reward_for_basic_strategy_total(*args, action), action) for action in actions
+        )[1]
 
     action_table[index] = action.value
 
@@ -2241,6 +2408,7 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
 # _ = create_tables(Rules(num_decks=1), INITIAL_DEPENDENT_STRATEGY, quiet=False)
 # print(monte_carlo_house_edge(Rules(num_decks=1), INITIAL_DEPENDENT_STRATEGY, 200_000_000))
 
+
 # %%
 def test_create_tables(rules: Rules, strategy: Strategy) -> None:
   """Check that all hands have possible actions, and that all possible actions have hands."""
@@ -2249,16 +2417,22 @@ def test_create_tables(rules: Rules, strategy: Strategy) -> None:
     for cards in more_itertools.distinct_permutations(unpermuted_cards):
       player_total, player_soft = combine_cards(cards)
       card1, card2, dealer1, have_split, is_first_action = *cards[:2], 10, False, False
-      index: tuple[int, ...] = (card1 - 1, card2 - 1, dealer1 - 1, int(have_split),
-                                int(is_first_action), player_total - 4, int(player_soft))
+      t1, t2, t3 = int(have_split), int(is_first_action), int(player_soft)
+      index1 = card1 - 1, card2 - 1, dealer1 - 1, t1, t2, player_total - 4, t3
       if card1 <= card2 and len(cards) >= 3:
-        assert action_table[index] > 0, (cards, player_total, player_soft)
-      action_table[index] = 10
+        assert action_table[index1] > 0, (cards, player_total, player_soft)
+      action_table[index1] = 10
 
   for index in np.ndindex(action_table.shape):
     card1, card2, dealer1, have_split, is_first_action, player_total, player_soft = (
-        index[0] + 1, index[1] + 1, index[2] + 1, bool(index[3]), bool(index[4]),
-        index[5] + 4, bool(index[6]))
+        index[0] + 1,
+        index[1] + 1,
+        index[2] + 1,
+        bool(index[3]),
+        bool(index[4]),
+        index[5] + 4,
+        bool(index[6]),
+    )
     if (dealer1, have_split, is_first_action) != (10, False, False):
       continue
     if action_table[index] not in (0, 10):
@@ -2313,6 +2487,7 @@ def create_tables_cuda(rules: Rules, strategy: Strategy) -> tuple[_CudaArray, _C
 # %% [markdown]
 # ### Simulate a hand
 
+
 # %%
 def get_int_split_to_num_hands(rules: Rules) -> int:
   """Return split_to_num_hands converted to an integer."""
@@ -2339,12 +2514,22 @@ def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: in
 # simulate_shoes_all_cut_cards() provides a small 1.1x simulation speedup.
 @numba_njit(inline=('always' if EFFORT >= 2 else 'never'))
 def simulate_hand(
-    shoe_index: int, shoe: _NDArray, card_index: int, split_table: _NDArray,
-    action_table: _NDArray, min_num_player_cards: int, rules_blackjack_payout: float,
-    rules_hit_soft17: bool, rules_obo: bool, rules_split_to_num_hands: int,
-    rules_resplit_aces: bool, split_second_cards: _NDArray) -> tuple[numba.float32, int]:
+    shoe_index: int,
+    shoe: _NDArray,
+    card_index: int,
+    split_table: _NDArray,
+    action_table: _NDArray,
+    min_num_player_cards: int,
+    rules_blackjack_payout: float,
+    rules_hit_soft17: bool,
+    rules_obo: bool,
+    rules_split_to_num_hands: int,
+    rules_resplit_aces: bool,
+    split_second_cards: _NDArray,
+) -> tuple[numba.float32, int]:
   """Return `(reward, card_index)` after playing a hand from the shoe."""
   int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
+  WIN, TIE, LOSE = float32(1.0), float32(0.0), float32(-1.0)
   card_index = uint32(card_index)
   hand_start_card_index = uint32(card_index)
 
@@ -2367,29 +2552,30 @@ def simulate_hand(
   # If player has blackjack, we allow player to consider (suboptimal) actions other than STAND.
   player_gets_bj = False
   if dealer_bj and rules_obo and not player_bj:
-    return float32(-1.0), card_index
+    return LOSE, card_index
 
-  have_split = (card1 == card2 and  # pylint: disable=chained-comparison
-                rules_split_to_num_hands >= 2 and
-                split_table[uint32(card1 - 1), uint32(dealer1 - 1)] and
-                min_num_player_cards <= 2)
+  have_split = (
+      card1 == card2  # pylint: disable=chained-comparison
+      and rules_split_to_num_hands >= 2
+      and split_table[uint32(card1 - 1), uint32(dealer1 - 1)]
+      and min_num_player_cards <= 2
+  )
 
   def reward_after_dealer(player_total: int) -> numba.float32:
     """Return the reward after dealer acts."""
     if player_total > 21 or dealer_bj:
-      return float32(-1.0)  # Player busts or dealer has blackjack.
+      return LOSE  # Player busts or dealer has blackjack.
 
     dealer_total, dealer_soft = numba_combine_two_cards(dealer1, dealer2)
-    while (dealer_total < 17 or (dealer_total == 17 and dealer_soft and rules_hit_soft17)):
+    while dealer_total < 17 or (dealer_total == 17 and dealer_soft and rules_hit_soft17):
       card = get_card()
       dealer_total, dealer_soft = numba_add_card(dealer_total, dealer_soft, card)
 
     if dealer_total > 21:
-      return float32(1.0)  # Dealer busts and thus player wins.
+      return WIN  # Dealer busts and thus player wins.
 
     # Player wins, pushes, or loses.
-    return (float32(1.0) if player_total > dealer_total else
-            float32(0.0) if player_total == dealer_total else float32(-1.0))
+    return WIN if player_total > dealer_total else TIE if player_total == dealer_total else LOSE
 
   def create_split_hands(card1: Card) -> numba.uint32:
     """Return series of second cards after iteratively splitting."""
@@ -2399,8 +2585,9 @@ def simulate_hand(
     while num_incomplete_hands > 0:
       card = get_card()
       num_split_hands = uint32(num_split_second_cards + num_incomplete_hands)
-      split_allowed = (num_split_hands < rules_split_to_num_hands and
-                       (card1 != 1 or rules_resplit_aces))
+      split_allowed = num_split_hands < rules_split_to_num_hands and (
+          card1 != 1 or rules_resplit_aces
+      )
       if card == card1 and split_allowed:
         num_incomplete_hands += 1
       else:
@@ -2422,22 +2609,25 @@ def simulate_hand(
     while True:
       force_hit = uint32(card_index - hand_start_card_index) < uint32(min_num_player_cards + 2)
       action_value = (
-          Action.HIT.value if force_hit else
-          action_table_slice[uint32(is_first_action), uint32(player_total - 4), uint32(player_soft)]
+          Action.HIT.value
+          if force_hit
+          else action_table_slice[
+              uint32(is_first_action), uint32(player_total - 4), uint32(player_soft)
+          ]
       )
 
       # Unfortunately, numba does not support match/case control structure.
       if action_value == Action.STAND.value:
         if is_first_action and player_bj:
           player_gets_bj = True
-          return float32(rules_blackjack_payout) if not dealer_bj else float32(0.0)
+          return float32(rules_blackjack_payout) if not dealer_bj else TIE
         return float32(reward_after_dealer(player_total))
 
       if action_value == Action.HIT.value:
         card = get_card()
         player_total, player_soft = numba_add_card(player_total, player_soft, card)
         if player_total > 21:
-          return float32(-1.0)
+          return LOSE
         is_first_action = False
         continue
 
@@ -2447,7 +2637,7 @@ def simulate_hand(
         return float32(reward_after_dealer(player_total) * 2)
 
       if action_value == Action.SURRENDER.value:
-        return float32(-1.0) if dealer_bj else float32(-0.5)
+        return LOSE if dealer_bj else float32(-0.5)
 
       raise AssertionError
 
@@ -2461,7 +2651,7 @@ def simulate_hand(
     reward = float32(simulate_potentially_split_hand())
 
   if dealer_bj and rules_obo and not player_gets_bj:  # (If player fails to STAND on bj.)
-    reward = float32(-1.0)
+    reward = LOSE
 
   return reward, card_index
 
@@ -2472,13 +2662,23 @@ def simulate_hand(
 # %% [markdown]
 # ### Simulation using CPU
 
+
 # %%
 @numba_njit()
 def simulate_shoes_helper(
-    start_shoe_index: int, shoes: _NDArray, split_table: _NDArray, action_table: _NDArray,
-    min_num_player_cards: int, rules_blackjack_payout: float, rules_hit_soft17: bool,
-    rules_obo: bool, rules_split_to_num_hands: int, rules_resplit_aces: bool,
-    rules_cut_card: int, hands_per_shoe: int) -> tuple[int, float, float]:
+    start_shoe_index: int,
+    shoes: _NDArray,
+    split_table: _NDArray,
+    action_table: _NDArray,
+    min_num_player_cards: int,
+    rules_blackjack_payout: float,
+    rules_hit_soft17: bool,
+    rules_obo: bool,
+    rules_split_to_num_hands: int,
+    rules_resplit_aces: bool,
+    rules_cut_card: int,
+    hands_per_shoe: int,
+) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
   assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
   split_second_cards = np.zeros(SPLIT_SECOND_CARDS_SIZE, np.int64)
@@ -2493,9 +2693,19 @@ def simulate_shoes_helper(
 
     while True:
       reward, card_index = simulate_hand(
-          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          float(rules_blackjack_payout), rules_hit_soft17, rules_obo,
-          rules_split_to_num_hands, rules_resplit_aces, split_second_cards)
+          shoe_index,
+          shoe,
+          card_index,
+          split_table,
+          action_table,
+          min_num_player_cards,
+          float(rules_blackjack_payout),
+          rules_hit_soft17,
+          rules_obo,
+          rules_split_to_num_hands,
+          rules_resplit_aces,
+          split_second_cards,
+      )
       shoe_played_hands += 1
       sum_rewards += reward
       sum_squared_rewards += reward * reward
@@ -2515,9 +2725,16 @@ if 0:
   print('\n'.join(map(repr, simulate_shoes_helper.overloads.keys())))  # (Run after notebook.)
 # (int64, Array(int64, 2, 'C', False, aligned=True), Array(bool, 2, 'C', False, aligned=True), Array(uint8, 7, 'C', False, aligned=True), int64, float64, bool, bool, float64, bool, int64, int64)
 
+
 # %%
-def simulate_shoes(start_shoe_index: int, shoes: _NDArray, rules: Rules, strategy: Strategy,
-                   min_num_player_cards: int, hands_per_shoe: int) -> tuple[int, float, float]:
+def simulate_shoes(
+    start_shoe_index: int,
+    shoes: _NDArray,
+    rules: Rules,
+    strategy: Strategy,
+    min_num_player_cards: int,
+    hands_per_shoe: int,
+) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
   assert start_shoe_index >= 0 and shoes.ndim == 2 and hands_per_shoe >= 0
   rules2 = normalize_rules_for_probabilistic_analysis(rules)
@@ -2529,9 +2746,19 @@ def simulate_shoes(start_shoe_index: int, shoes: _NDArray, rules: Rules, strateg
   #   strategy.attention are already encoded in `action_table`.
   rules_split_to_num_hands = get_int_split_to_num_hands(rules)
   return simulate_shoes_helper(
-      start_shoe_index, shoes, split_table, action_table, min_num_player_cards,
-      float(rules.blackjack_payout), rules.hit_soft17, rules.obo, rules_split_to_num_hands,
-      rules.resplit_aces, rules.cut_card, hands_per_shoe)
+      start_shoe_index,
+      shoes,
+      split_table,
+      action_table,
+      min_num_player_cards,
+      float(rules.blackjack_payout),
+      rules.hit_soft17,
+      rules.obo,
+      rules_split_to_num_hands,
+      rules.resplit_aces,
+      rules.cut_card,
+      hands_per_shoe,
+  )
 
 
 # %%
@@ -2554,9 +2781,12 @@ def test_simulate_single_shoe() -> None:
   #    7  6 10  6 10  8  1  9 10  8  7  4  3  6  2  8  6 10  5  8 10  1  2 10
   #    2  1  4  4]]
   # rewards=[1.0, 0.0, 1.5, -1.0]; sum=1.5; sum_squared=4.25
-  check_eq(simulate_shoes(0, shoes, Rules(num_decks=1, cut_card=0), Strategy(),
-                          min_num_player_cards, hands_per_shoe),
-           (4, 1.5, 4.25))
+  check_eq(
+      simulate_shoes(
+          0, shoes, Rules(num_decks=1, cut_card=0), Strategy(), min_num_player_cards, hands_per_shoe
+      ),
+      (4, 1.5, 4.25),
+  )
 
 
 # %%
@@ -2576,9 +2806,15 @@ _global_create_shoes: CreateShoes
 
 
 # %%
-def simulate_many_shoes(rules: Rules, strategy: Strategy, min_num_player_cards: int,
-                        hands_per_shoe: int, start_shoe_index: int, stop_shoe_index: int,
-                        quiet: bool) -> tuple[int, float, float]:
+def simulate_many_shoes(
+    rules: Rules,
+    strategy: Strategy,
+    min_num_player_cards: int,
+    hands_per_shoe: int,
+    start_shoe_index: int,
+    stop_shoe_index: int,
+    quiet: bool,
+) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over many random shoes."""
   assert hands_per_shoe >= 0 and 0 <= start_shoe_index <= stop_shoe_index
   played_hands = 0
@@ -2593,9 +2829,10 @@ def simulate_many_shoes(rules: Rules, strategy: Strategy, min_num_player_cards: 
       seed_index = start // shoes_per_seed * shoes_per_seed
       num_batch_shoes = min(stop_shoe_index - seed_index, shoes_per_seed)
       shoes = _global_create_shoes(num_batch_shoes, seed_index)
-      shoes = shoes[start - seed_index:]
+      shoes = shoes[start - seed_index :]
       shoe_played_hands, shoe_sum_rewards, shoe_sum_squared_rewards = simulate_shoes(
-          start, shoes, rules, strategy, min_num_player_cards, hands_per_shoe)
+          start, shoes, rules, strategy, min_num_player_cards, hands_per_shoe
+      )
       played_hands += shoe_played_hands
       sum_rewards += shoe_sum_rewards
       sum_squared_rewards += shoe_sum_squared_rewards
@@ -2611,9 +2848,7 @@ def get_hands_per_shoe(cut_card: int, shoe_size: int) -> int:
   # If cut_card == 0, we should reshuffle the shoe after each hand.  For efficiency, we instead
   # consider a larger (but fixed) number of hands; this does not affect the computed reward.
   return int(  # Cast to unconfuse mypy.
-      0 if cut_card > 0 else
-      shoe_size // 12 if shoe_size < 80 else
-      shoe_size // DECK_SIZE * 6
+      0 if cut_card > 0 else shoe_size // 12 if shoe_size < 80 else shoe_size // DECK_SIZE * 6
   )
 
 
@@ -2629,10 +2864,16 @@ def get_num_hands() -> int:
 
 # %%
 def run_simulations(
-    rules: Rules, strategy: Strategy, num_hands: int, create_shoes: CreateShoes,
-    parallel: bool | None, quiet: bool, *,
+    rules: Rules,
+    strategy: Strategy,
+    num_hands: int,
+    create_shoes: CreateShoes,
+    parallel: bool | None,
+    quiet: bool,
+    *,
     start_shoe_index: int = 0,
-    min_num_player_cards: int = 0, hands_per_shoe: int = 0,
+    min_num_player_cards: int = 0,
+    hands_per_shoe: int = 0,
 ) -> tuple[float, int, float]:
   """Return `(reward_average, played_hands, reward_sdv)` computed over many random hands."""
   assert start_shoe_index >= 0 and num_hands > 0 and hands_per_shoe >= 0
@@ -2643,8 +2884,9 @@ def run_simulations(
   hands_per_shoe = hands_per_shoe or get_hands_per_shoe(rules.cut_card, shoe_size)
 
   # We estimate the number of shoes necessary to play out `num_hands`.
-  approx_hands_per_shoe = (hands_per_shoe if hands_per_shoe != 0 else
-                           math.ceil(rules.cut_card / AVERAGE_CARDS_PER_HAND))
+  approx_hands_per_shoe = (
+      hands_per_shoe if hands_per_shoe != 0 else math.ceil(rules.cut_card / AVERAGE_CARDS_PER_HAND)
+  )
   # Ideally, we need a better estimate when rules.cut_card is small (e.g. 16).
   num_shoes = math.ceil(num_hands / approx_hands_per_shoe)
   stop_shoe_index = start_shoe_index + num_shoes
@@ -2669,8 +2911,10 @@ def run_simulations(
     num_tasks = max(estimated_work // min_work_per_task, 1)
     num_tasks = min(num_tasks, multiprocessing.cpu_count())
     if 0:
-      print(f'{num_hands:_} {num_shoes:_} {estimated_work} '
-            f'{estimated_work/min_work_per_task} {num_tasks}')
+      print(
+          f'{num_hands:_} {num_shoes:_} {estimated_work} '
+          f'{estimated_work/min_work_per_task} {num_tasks}'
+      )
     shoes_per_task = math.ceil(num_shoes / num_tasks)
     with multiprocessing.get_context('fork').Pool(num_tasks) as pool:
       tasks_args = []
@@ -2678,33 +2922,47 @@ def run_simulations(
       while start < stop_shoe_index:
         stop = min(start + shoes_per_task, stop_shoe_index)
         quiet2 = quiet or start > start_shoe_index
-        tasks_args.append((rules, strategy, min_num_player_cards, hands_per_shoe,
-                           start, stop, quiet2))
+        tasks_args.append(
+            (rules, strategy, min_num_player_cards, hands_per_shoe, start, stop, quiet2)
+        )
         start = stop
       outcomes = pool.starmap(simulate_many_shoes, tasks_args)
     played_hands, sum_rewards, sum_squared_rewards = (sum(e) for e in zip(*outcomes))
   else:
     played_hands, sum_rewards, sum_squared_rewards = simulate_many_shoes(
-        rules, strategy, min_num_player_cards, hands_per_shoe,
-        start_shoe_index, stop_shoe_index, quiet)
+        rules,
+        strategy,
+        min_num_player_cards,
+        hands_per_shoe,
+        start_shoe_index,
+        stop_shoe_index,
+        quiet,
+    )
 
   reward_average = sum_rewards / played_hands
-  reward_sdv = (math.nan if played_hands <= 1 else
-                (max(sum_squared_rewards - sum_rewards**2 / played_hands, 0.0)
-                 / (played_hands - 1))**0.5)
+  reward_sdv = (
+      math.nan
+      if played_hands <= 1
+      else (max(sum_squared_rewards - sum_rewards**2 / played_hands, 0.0) / (played_hands - 1))
+      ** 0.5
+  )
   return reward_average, played_hands, reward_sdv
 
 
 # %%
 def monte_carlo_house_edge_cpu(
-    rules: Rules, strategy: Strategy, num_hands: int,
-    parallel: bool | None = None, quiet: bool = False
+    rules: Rules,
+    strategy: Strategy,
+    num_hands: int,
+    parallel: bool | None = None,
+    quiet: bool = False,
 ) -> tuple[float, int, float]:
   """Return `(house_edge, played_hands, house_edge_sdv)` computed by simulation of `num_hands`."""
   assert num_hands > 0
   create_shoes = default_shoes_creator(rules)
   reward_average, played_hands, reward_sdv = run_simulations(
-      rules, strategy, num_hands, create_shoes, parallel, quiet)
+      rules, strategy, num_hands, create_shoes, parallel, quiet
+  )
   house_edge = -reward_average
   return house_edge, played_hands, reward_sdv
 
@@ -2714,7 +2972,8 @@ def test_monte_carlo_house_edge_cpu() -> None:
   """Test monte_carlo_house_edge_cpu."""
   num_hands = 10**7
   house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cpu(
-      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True)
+      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True
+  )
   # print(house_edge, played_hands, reward_sdv)
   assert 0.9 < played_hands / num_hands < 1.1
   assert 0.0016 < house_edge < 0.0018 and 1.1 < reward_sdv < 1.2
@@ -2726,8 +2985,12 @@ test_monte_carlo_house_edge_cpu()
 
 # %%
 def monte_carlo_hand_cpu(
-    hand: Hand, rules: Rules, strategy: Strategy, num_hands: int,
-    parallel: bool | None = None, quiet: bool = False
+    hand: Hand,
+    rules: Rules,
+    strategy: Strategy,
+    num_hands: int,
+    parallel: bool | None = None,
+    quiet: bool = False,
 ) -> tuple[float, float]:
   """Return `(reward_average, reward_sdv)` obtained by simulation of a particular hand."""
   check_hand(hand)
@@ -2735,8 +2998,15 @@ def monte_carlo_hand_cpu(
   create_shoes = simulate_hand_shoes_creator(hand, rules)
   min_num_player_cards = len(player_cards)
   reward_average, played_hands, reward_sdv = run_simulations(
-      rules, strategy, num_hands, create_shoes, parallel, quiet,
-      min_num_player_cards=min_num_player_cards, hands_per_shoe=1)
+      rules,
+      strategy,
+      num_hands,
+      create_shoes,
+      parallel,
+      quiet,
+      min_num_player_cards=min_num_player_cards,
+      hands_per_shoe=1,
+  )
   check_eq(played_hands, num_hands)
   return reward_average, reward_sdv
 
@@ -2758,8 +3028,11 @@ test_monte_carlo_hand_cpu()
 # %%
 if 0:
   # Jitted with EFFORT=3.
-  hh.prun(lambda: monte_carlo_house_edge_cpu(
-      Rules(num_decks=1), Strategy(), 10_000_000, quiet=True, parallel=False))
+  hh.prun(
+      lambda: monte_carlo_house_edge_cpu(
+          Rules(num_decks=1), Strategy(), 10_000_000, quiet=True, parallel=False
+      )
+  )
 # Prun: tottime    1.096 overall_cumtime
 #         0.684    0.687 numpy.random._generator.Generator.permuted
 #         0.334    0.334 simulate_shoes_helper (/tmp/ipykernel:1)
@@ -2768,8 +3041,9 @@ if 0:
 
 # %%
 if 0:
-  hh.print_time(lambda: monte_carlo_house_edge_cpu(
-      Rules(), Strategy(), 10**9, quiet=True), max_time=25.0)
+  hh.print_time(
+      lambda: monte_carlo_house_edge_cpu(Rules(), Strategy(), 10**9, quiet=True), max_time=25.0
+  )
 # For EFFORT=2 (run twice to cache probabilistic values) (inline='always'): ~7.0 s.
 
 
@@ -2782,10 +3056,13 @@ def experiment_shoes_per_seed(rules: Rules, num_hands: int, shoes_per_seed: int)
     return shoes_per_seed
 
   with unittest.mock.patch(f'{__name__}.get_shoes_per_seed', new_func):
-    elapsed = hh.get_time(lambda: monte_carlo_house_edge_cpu(rules, Strategy(), num_hands, quiet=True),
-                          max_time=5.0)
-    print(f'# num_decks={rules.num_decks}  {num_hands=:<13_}'
-          f' {shoes_per_seed=:<6_} {elapsed:.03f} s')
+    elapsed = hh.get_time(
+        lambda: monte_carlo_house_edge_cpu(rules, Strategy(), num_hands, quiet=True), max_time=5.0
+    )
+    print(
+        f'# num_decks={rules.num_decks}  {num_hands=:<13_}'
+        f' {shoes_per_seed=:<6_} {elapsed:.03f} s'
+    )
 
 
 # %%
@@ -2839,7 +3116,7 @@ def disable_numba_logging_cuda_error_not_ready() -> None:
 
     def filter(self, record: logging.LogRecord) -> bool:
       """Return False to block messages containing this text."""
-      return "Call to cuEventQuery results in CUDA_ERROR_NOT_READY" not in record.msg
+      return 'Call to cuEventQuery results in CUDA_ERROR_NOT_READY' not in record.msg
 
   numba_logger = logging.getLogger('numba.cuda.cudadrv.driver')
   # numba_logger.setLevel(logging.CRITICAL)  # Hide all messages below CRITICAL level.
@@ -2852,7 +3129,11 @@ def disable_numba_logging_cuda_error_not_ready() -> None:
 
 # %%
 def show_cuda_kernel_progress(
-    event: cuda.Event, d_progress: _CudaArray, total: int, desc: str, quiet: bool = False
+    event: cuda.Event,
+    d_progress: _CudaArray,
+    total: int,
+    desc: str,
+    quiet: bool = False,
 ) -> None:
   """Show progress of CUDA kernel given."""
   disable_numba_logging_cuda_error_not_ready()
@@ -2877,19 +3158,17 @@ def get_shoe_size_cuda(num_decks: float) -> int:
 # %%
 def get_threads_per_block(shoe_size: int) -> int:
   """Return the number of threads per block to enable the cuda kernel to fit."""
-  return (
-      512 if shoe_size <= 52 else
-      256 if shoe_size <= 2 * 52 else
-      128 if shoe_size <= 4 * 52 else
-      64 if shoe_size <= 8 * 52 else
-      32
-  )
+  s = shoe_size  # Use expression ??
+  v = 512 if s <= 52 else 256 if s <= 2 * 52 else 128 if s <= 4 * 52 else 64 if s <= 8 * 52 else 32
+  return v
 
 
 # %%
 @numba_njit(device=True, inline='always')  # It must be inlined because it returns an array.
 def create_unshuffled_shoe_cuda(
-    shoe_size: int, rules_num_decks_inf: bool, hand_cards: _CudaArray
+    shoe_size: int,
+    rules_num_decks_inf: bool,
+    hand_cards: _CudaArray,
 ) -> _CudaArray:
   """Allocate a shoe. If there is a finite number of decks, enter their cards in the shoe."""
   int32, uint32 = numba.int32, numba.uint32
@@ -2925,7 +3204,10 @@ def create_unshuffled_shoe_cuda(
 # %%
 @numba_njit(device=True, inline=('always' if EFFORT >= 2 else 'never'))
 def shuffle_shoe_cuda(
-    rng: Any, shoe: _CudaArray, rules_num_decks_inf: bool, num_fixed: int
+    rng: Any,
+    shoe: _CudaArray,
+    rules_num_decks_inf: bool,
+    num_fixed: int,
 ) -> None:
   """Apply random shuffling to the cards in the shoe."""
   int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
@@ -2984,12 +3266,22 @@ def shuffle_shoe_cuda(
 # %%
 @cuda.jit(fastmath=True)  # type: ignore[misc]
 def create_and_simulate_shoes_cuda(
-    rng_states: _CudaArray, hand_cards1: _CudaArray,
-    shoes_per_thread: int, shoe_size: int, start_shoe_index: int,
-    split_table: _CudaArray, action_table: _CudaArray,
-    rules_num_decks_inf: bool, rules_blackjack_payout: float, rules_hit_soft17: bool,
-    rules_obo: bool, rules_split_to_num_hands: int, rules_resplit_aces: bool,
-    rules_cut_card: int, hands_per_shoe: int, global_result: _CudaArray,
+    rng_states: _CudaArray,
+    hand_cards1: _CudaArray,
+    shoes_per_thread: int,
+    shoe_size: int,
+    start_shoe_index: int,
+    split_table: _CudaArray,
+    action_table: _CudaArray,
+    rules_num_decks_inf: bool,
+    rules_blackjack_payout: float,
+    rules_hit_soft17: bool,
+    rules_obo: bool,
+    rules_split_to_num_hands: int,
+    rules_resplit_aces: bool,
+    rules_cut_card: int,
+    hands_per_shoe: int,
+    global_result: _CudaArray,
     progress: _CudaArray,
 ) -> None:
   """Compute `(played_hands, sum_rewards, sum_squared_rewards)` over all hands."""
@@ -3027,9 +3319,19 @@ def create_and_simulate_shoes_cuda(
 
     while True:
       reward, card_index = simulate_hand(
-          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
-          rules_resplit_aces, split_second_cards)
+          shoe_index,
+          shoe,
+          card_index,
+          split_table,
+          action_table,
+          min_num_player_cards,
+          rules_blackjack_payout,
+          rules_hit_soft17,
+          rules_obo,
+          rules_split_to_num_hands,
+          rules_resplit_aces,
+          split_second_cards,
+      )
       reward, card_index = float32(reward), uint32(card_index)
       shoe_played_hands = uint32(shoe_played_hands + 1)
       sum_rewards += reward
@@ -3066,9 +3368,14 @@ def create_and_simulate_shoes_cuda(
 # To determine the optimal threads_per_block:
 # # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules(num_decks=1), Strategy(), 10**8)  # ~200 ms.
 
+
 # %%
 def run_simulations_cuda(
-    rules: Rules, strategy: Strategy, num_hands: int, hand_cards: tuple[int, ...], quiet: bool,
+    rules: Rules,
+    strategy: Strategy,
+    num_hands: int,
+    hand_cards: tuple[int, ...],
+    quiet: bool,
 ) -> tuple[float, int, float]:
   """Return `(reward_average, played_hands, reward_sdv)` computed by simulation of `num_hands`."""
   assert strategy.attention in (Attention.TOTAL_OF_CARDS, Attention.INITIAL_CARDS_AND_TOTAL)
@@ -3110,10 +3417,24 @@ def run_simulations_cuda(
     print(f'{shoes_per_thread=} {num_threads=:_} {blocks=} {dynamic_shared_memory_size=}')
   event = cuda.event()
   create_and_simulate_shoes_cuda[blocks, threads_per_block, 0, dynamic_shared_memory_size](
-      d_rng_states, d_hand_cards1, shoes_per_thread, shoe_size, start_shoe_index,
-      d_split_table, d_action_table, rules.num_decks == math.inf,
-      rules.blackjack_payout, rules.hit_soft17, rules.obo, rules_split_to_num_hands,
-      rules.resplit_aces, rules.cut_card, hands_per_shoe, d_result, d_progress)
+      d_rng_states,
+      d_hand_cards1,
+      shoes_per_thread,
+      shoe_size,
+      start_shoe_index,
+      d_split_table,
+      d_action_table,
+      rules.num_decks == math.inf,
+      rules.blackjack_payout,
+      rules.hit_soft17,
+      rules.obo,
+      rules_split_to_num_hands,
+      rules.resplit_aces,
+      rules.cut_card,
+      hands_per_shoe,
+      d_result,
+      d_progress,
+  )
 
   show_cuda_kernel_progress(event, d_progress, blocks, 'sim', quiet)
 
@@ -3122,9 +3443,12 @@ def run_simulations_cuda(
   played_hands = int(float_total_played_hands)
   assert played_hands > 0, (float_total_played_hands, sum_rewards, sum_squared_rewards)
   reward_average = sum_rewards / played_hands
-  reward_sdv = (math.nan if played_hands <= 1 else
-                (max(sum_squared_rewards - sum_rewards**2 / played_hands, 0.0)
-                 / (played_hands - 1))**0.5)
+  reward_sdv = (
+      math.nan
+      if played_hands <= 1
+      else (max(sum_squared_rewards - sum_rewards**2 / played_hands, 0.0) / (played_hands - 1))
+      ** 0.5
+  )
   return reward_average, played_hands, reward_sdv
 
 
@@ -3134,7 +3458,8 @@ def test_run_simulations_cuda() -> None:
   num_hands = 10**9
   hand_cards = ()
   reward_average, played_hands, reward_sdv = run_simulations_cuda(
-      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, hand_cards, False)
+      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, hand_cards, False
+  )
   house_edge = -reward_average
   assert 0.8 < played_hands / num_hands < 1.2, played_hands
   expected_house_edge = 0.00170  # 0.170%.
@@ -3156,8 +3481,11 @@ if cuda.is_available():
 
 # %%
 def monte_carlo_house_edge_cuda(
-    rules: Rules, strategy: Strategy, num_hands: int,
-    parallel: bool | None = None, quiet: bool = False,
+    rules: Rules,
+    strategy: Strategy,
+    num_hands: int,
+    parallel: bool | None = None,
+    quiet: bool = False,
 ) -> tuple[float, int, float]:
   """Return `(house_edge, played_hands, house_edge_sdv)` computed by simulation of `num_hands`."""
   del parallel
@@ -3174,7 +3502,8 @@ def test_monte_carlo_house_edge_cuda() -> None:
   """Test monte_carlo_house_edge_cuda."""
   num_hands = 10**8
   house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cuda(
-      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True)
+      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True
+  )
   # print(house_edge, played_hands, reward_sdv)
   assert 0.9 < played_hands / num_hands < 1.1
   assert 0.0016 < house_edge < 0.0018 and 1.1 < reward_sdv < 1.2
@@ -3187,8 +3516,12 @@ if cuda.is_available():
 
 # %%
 def monte_carlo_hand_cuda(
-    hand: Hand, rules: Rules, strategy: Strategy, num_hands: int,
-    parallel: bool | None = None, quiet: bool = False
+    hand: Hand,
+    rules: Rules,
+    strategy: Strategy,
+    num_hands: int,
+    parallel: bool | None = None,
+    quiet: bool = False,
 ) -> tuple[float, float]:
   """Return `(reward_average, reward_sdv)` obtained by simulation of a particular hand."""
   del parallel
@@ -3249,8 +3582,10 @@ def verify_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -
   del reward_sdv
   elapsed_time = (time.perf_counter_ns() - start_time) / 10**9
   hands_per_s = played_hands / elapsed_time
-  print(f'# ndecks={num_decks:<3} house edge {house_edge * 100:.4f}%'
-        f' {played_hands:16,} hands {hands_per_s:14,.0f} hands/s')
+  print(
+      f'# ndecks={num_decks:<3} house edge {house_edge * 100:.4f}%'
+      f' {played_hands:16,} hands {hands_per_s:14,.0f} hands/s'
+  )
   assert abs(house_edge - expected_edge) < 5.0 / num_hands**0.5, (house_edge, expected_edge)
 
 
@@ -3283,6 +3618,7 @@ if cuda.is_available():
 # ndecks=2   prob~ 0.392% (37s)  sim: 0.459% ±0.002%(63s)   wiz: 0.457%  wiki: 0.460%
 # ndecks=4   prob~ 0.562% (47s)  sim: 0.591% ±0.002%(75s)   wiz: 0.597%* wiki: 0.600%+
 # ndecks=inf prob: 0.731% (33s)  sim: 0.727% ±0.002%(63s)
+
 
 # %%
 def test_simulation_timings() -> None:
@@ -3343,10 +3679,18 @@ if cuda.is_available():
 
 # %%
 def simulate_shoes_all_cut_cards_nonjit(
-    start_shoe_index: int, shoes: _NDArray, split_table: _NDArray, action_table: _NDArray,
-    rules_blackjack_payout: float, rules_hit_soft17: bool, rules_obo: bool,
-    rules_split_to_num_hands: int, rules_resplit_aces: bool,
-    output_played_hands: _NDArray, output_rewards: _NDArray) -> None:
+    start_shoe_index: int,
+    shoes: _NDArray,
+    split_table: _NDArray,
+    action_table: _NDArray,
+    rules_blackjack_payout: float,
+    rules_hit_soft17: bool,
+    rules_obo: bool,
+    rules_split_to_num_hands: int,
+    rules_resplit_aces: bool,
+    output_played_hands: _NDArray,
+    output_rewards: _NDArray,
+) -> None:
   """Play hands from all shoes, updating arrays played_hands and rewards."""
   assert start_shoe_index >= 0 and shoes.ndim == 2
   assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
@@ -3358,9 +3702,19 @@ def simulate_shoes_all_cut_cards_nonjit(
     card_index = 0
     while card_index < len(shoe):
       reward, card_index2 = simulate_hand(
-          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          float(rules_blackjack_payout), rules_hit_soft17, rules_obo,
-          rules_split_to_num_hands, rules_resplit_aces, split_second_cards)
+          shoe_index,
+          shoe,
+          card_index,
+          split_table,
+          action_table,
+          min_num_player_cards,
+          float(rules_blackjack_payout),
+          rules_hit_soft17,
+          rules_obo,
+          rules_split_to_num_hands,
+          rules_resplit_aces,
+          split_second_cards,
+      )
       output_played_hands[card_index] += 1
       output_rewards[card_index] += reward
       card_index = card_index2
@@ -3374,8 +3728,12 @@ else:
 
 # %%
 def simulate_many_shoes_all_cut_cards(
-    rules: Rules, strategy: Strategy, start_shoe_index: int,
-    stop_shoe_index: int, quiet: bool = False) -> tuple[_NDArray, _NDArray]:
+    rules: Rules,
+    strategy: Strategy,
+    start_shoe_index: int,
+    stop_shoe_index: int,
+    quiet: bool = False,
+) -> tuple[_NDArray, _NDArray]:
   """Return played_hands and rewards simulating all cut-card positions."""
   assert 0 <= start_shoe_index <= stop_shoe_index
   rules = normalize_rules_for_probabilistic_analysis(rules)
@@ -3394,11 +3752,20 @@ def simulate_many_shoes_all_cut_cards(
       seed_index = start // shoes_per_seed * shoes_per_seed
       num_batch_shoes = min(stop_shoe_index - seed_index, shoes_per_seed)
       shoes = create_shoes(num_batch_shoes, seed_index)
-      shoes = shoes[start - seed_index:]
-      rules_args = (rules.blackjack_payout, rules.hit_soft17, rules.obo,
-                    rules_split_to_num_hands, rules.resplit_aces)
+      shoes = shoes[start - seed_index :]
       simulate_shoes_all_cut_cards(
-          start, shoes, split_table, action_table, *rules_args, played_hands, rewards)
+          start,
+          shoes,
+          split_table,
+          action_table,
+          rules.blackjack_payout,
+          rules.hit_soft17,
+          rules.obo,
+          rules_split_to_num_hands,
+          rules.resplit_aces,
+          played_hands,
+          rewards,
+      )
       progress_bar.update(len(shoes))
       start += len(shoes)
 
@@ -3409,6 +3776,7 @@ def simulate_many_shoes_all_cut_cards(
 @dataclasses.dataclass
 class CutCardAnalysisResult:
   """Data generated by analysis of cut-card placement."""
+
   rules: Rules
   strategy: Strategy
   num_shoes: int
@@ -3418,8 +3786,14 @@ class CutCardAnalysisResult:
 
 # %%
 def run_simulations_all_cut_cards_cpu(
-    rules: Rules, strategy: Strategy, num_shoes: int, *, parallel: bool = True,
-    start_shoe_index: int = 0, quiet: bool = False) -> CutCardAnalysisResult:
+    rules: Rules,
+    strategy: Strategy,
+    num_shoes: int,
+    *,
+    parallel: bool = True,
+    start_shoe_index: int = 0,
+    quiet: bool = False,
+) -> CutCardAnalysisResult:
   """Compute house_edge_from_cut_card over many random shoes."""
   assert rules.num_decks != math.inf and num_shoes > 0 and start_shoe_index >= 0
   rules = normalize_rules_for_probabilistic_analysis(rules)
@@ -3449,7 +3823,8 @@ def run_simulations_all_cut_cards_cpu(
 
   else:
     played_hands, rewards = simulate_many_shoes_all_cut_cards(
-        rules, strategy, start_shoe_index, stop_shoe_index, quiet)
+        rules, strategy, start_shoe_index, stop_shoe_index, quiet
+    )
 
   assert played_hands[0] == num_shoes
   total_played_hands = np.sum(played_hands)
@@ -3481,8 +3856,11 @@ test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.001)  # jitting ~5 s.
 # %%
 if 0:
   # Jitted with EFFORT=3.
-  hh.prun(lambda: run_simulations_all_cut_cards_cpu(
-      Rules(num_decks=1), Strategy(), 2_000_000, quiet=True, parallel=False))
+  hh.prun(
+      lambda: run_simulations_all_cut_cards_cpu(
+          Rules(num_decks=1), Strategy(), 2_000_000, quiet=True, parallel=False
+      )
+  )
 # Prun: tottime    1.380 overall_cumtime
 #         0.686    0.689 numpy.random._generator.Generator.permuted
 #         0.637    0.637 simulate_shoes_all_cut_cards (/tmp/ipykernel:1)
@@ -3491,14 +3869,24 @@ if 0:
 # %% [markdown]
 # ### All cut-cards using CUDA
 
+
 # %%
 @cuda.jit(fastmath=True)  # type: ignore[misc]
 def simulate_cut_cards_cuda(
-    rng_states: _CudaArray, shoes_per_thread: int, shoe_size: int, start_shoe_index: int,
-    split_table: _CudaArray, action_table: _CudaArray,
-    rules_blackjack_payout: float, rules_hit_soft17: bool, rules_obo: bool,
-    rules_split_to_num_hands: int, rules_resplit_aces: bool,
-    global_played_hands: _CudaArray, global_rewards: _CudaArray, progress: _CudaArray,
+    rng_states: _CudaArray,
+    shoes_per_thread: int,
+    shoe_size: int,
+    start_shoe_index: int,
+    split_table: _CudaArray,
+    action_table: _CudaArray,
+    rules_blackjack_payout: float,
+    rules_hit_soft17: bool,
+    rules_obo: bool,
+    rules_split_to_num_hands: int,
+    rules_resplit_aces: bool,
+    global_played_hands: _CudaArray,
+    global_rewards: _CudaArray,
+    progress: _CudaArray,
 ) -> None:
   """Compute `(global_played_hands, global_rewards)` at each cut card location."""
   # pylint: disable=no-value-for-parameter, comparison-with-callable
@@ -3532,9 +3920,19 @@ def simulate_cut_cards_cuda(
     card_index = uint32(0)
     while card_index < shoe_size:
       reward, card_index2 = simulate_hand(
-          shoe_index, shoe, card_index, split_table, action_table, min_num_player_cards,
-          rules_blackjack_payout, rules_hit_soft17, rules_obo, rules_split_to_num_hands,
-          rules_resplit_aces, split_second_cards)
+          shoe_index,
+          shoe,
+          card_index,
+          split_table,
+          action_table,
+          min_num_player_cards,
+          rules_blackjack_payout,
+          rules_hit_soft17,
+          rules_obo,
+          rules_split_to_num_hands,
+          rules_resplit_aces,
+          split_second_cards,
+      )
       cuda.atomic.add(shared_played_hands, card_index, 1)
       cuda.atomic.add(shared_rewards, card_index, reward)
       card_index = card_index2
@@ -3549,8 +3947,14 @@ def simulate_cut_cards_cuda(
 
 # %%
 def run_simulations_all_cut_cards_cuda(
-    rules: Rules, strategy: Strategy, num_shoes: int, *, parallel: bool = True,
-    start_shoe_index: int = 0, quiet: bool = False) -> CutCardAnalysisResult:
+    rules: Rules,
+    strategy: Strategy,
+    num_shoes: int,
+    *,
+    parallel: bool = True,
+    start_shoe_index: int = 0,
+    quiet: bool = False,
+) -> CutCardAnalysisResult:
   """Compute house_edge_from_cut_card over many random shoes using CUDA."""
   del parallel
   assert rules.num_decks != math.inf and num_shoes > 0 and start_shoe_index >= 0
@@ -3582,11 +3986,21 @@ def run_simulations_all_cut_cards_cuda(
     print(f'{shoes_per_thread=} {num_threads=:_} {blocks=} {dynamic_shared_memory_size=}')
   event = cuda.event()
   simulate_cut_cards_cuda[blocks, threads_per_block, 0, dynamic_shared_memory_size](
-      d_rng_states, shoes_per_thread, shoe_size, start_shoe_index,
-      d_split_table, d_action_table,
-      rules.blackjack_payout, rules.hit_soft17, rules.obo,
-      rules_split_to_num_hands, rules.resplit_aces,
-      d_played_hands, d_rewards, d_progress)
+      d_rng_states,
+      shoes_per_thread,
+      shoe_size,
+      start_shoe_index,
+      d_split_table,
+      d_action_table,
+      rules.blackjack_payout,
+      rules.hit_soft17,
+      rules.obo,
+      rules_split_to_num_hands,
+      rules.resplit_aces,
+      d_played_hands,
+      d_rewards,
+      d_progress,
+  )
 
   show_cuda_kernel_progress(event, d_progress, blocks, 'sim_cut', quiet)
 
@@ -3640,9 +4054,11 @@ if cuda.is_available():
 # and the
 # [bjstrat.net hand calculator](http://www.bjstrat.net/cgi-bin/cdca.cgi).
 
+
 # %%
 class HandCalculator:
   """Provider of expected reward for actions on particular hands."""
+
   Downloaded = dict[tuple[Hand, Action], float]
 
   def __init__(self, name: str) -> None:
@@ -3679,8 +4095,9 @@ class HandCalculator:
     """Download to a file a dictionary of hand rewards under `rules`."""
     rules = normalize_rules_for_probabilistic_analysis(rules)
     downloaded = {}
-    generate_hands = (generate_all_initial_cards() if only_initial_cards else
-                      generate_all_hands(rules))
+    generate_hands = (
+        generate_all_initial_cards() if only_initial_cards else generate_all_hands(rules)
+    )
     for player_cards in tqdm_stdout(list(generate_hands), desc='download', leave=True):
       for dealer1 in range(1, 11):
         if player_cards.count(dealer1) < rules.num_decks * NUM_SUITS:
@@ -3723,18 +4140,26 @@ class WizardHandCalculator(HandCalculator):
       split_aces_to_num_hands = min(int(rules.split_to_num_hands), 4 if rules.resplit_aces else 2)
       args: list[Any] = [n * 4] * 8 + [n * 16] + [n * 4]  # Shoe composition.
       args += [
-          0, rules.blackjack_payout, int(rules.obo), int(rules.hit_soft17),
+          0,
+          rules.blackjack_payout,
+          int(rules.obo),
+          int(rules.hit_soft17),
           {0: 0, 9: 1, 10: 2}[rules.double_min_total],
           {0: 0, 2: 1, 3: 2, 4: 3}[int(rules.split_to_num_hands)],
           {0: 0, 2: 1, 3: 2, 4: 3}[split_aces_to_num_hands],
-          int(rules.hit_split_aces), int(rules.double_after_split),
-          int(rules.late_surrender), encode(dealer1),
-          ''.join(encode(card) for card in player_cards)]
+          int(rules.hit_split_aces),
+          int(rules.double_after_split),
+          int(rules.late_surrender),
+          encode(dealer1),
+          ''.join(encode(card) for card in player_cards),
+      ]
       url = 'https://wizardofodds.com/calculators-js/blackjack/calculate/?' + '&'.join(
-          f'{chr(ord("a") + i)}={arg}' for i, arg in enumerate(args))
-      with urllib.request.urlopen(urllib.request.Request(
-          url, headers={'User-Agent': 'Chrome'})) as response:
-        text: str = response.read().decode()
+          f'{chr(ord("a") + i)}={arg}' for i, arg in enumerate(args)
+      )
+      with urllib.request.urlopen(
+          urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
+      ) as response:
+        text: str = response.read().decode('utf-8')
       return text
 
     except (OverflowError, KeyError, urllib.error.URLError):
@@ -3785,8 +4210,10 @@ class BjstratHandCalculator(HandCalculator):
           bjOdds={1.0: 0, 1.2: 1, 1.5: 2, 2.0: 3}[rules.blackjack_payout],
           **(dict(chkS17='on') if not rules.hit_soft17 else {}),
           **(dict(chkENHC='on') if not rules.obo else {}),
-          chkCondEV='on', computeMode='bestStrat',
-          AutoWin='AW_None', dblCards='DO2',
+          chkCondEV='on',
+          computeMode='bestStrat',
+          AutoWin='AW_None',
+          dblCards='DO2',
           dblRestrict={0: 'None', 9: 'H9_11', 10: 'H10_11'}[rules.double_min_total],
           maxSpA={0: 0, 2: 1, 3: 2, 4: 3}[split_aces_to_num_hands],
           maxSp2_10={0: 0, 2: 1, 3: 2, 4: 3}[int(rules.split_to_num_hands)],
@@ -3795,16 +4222,25 @@ class BjstratHandCalculator(HandCalculator):
           **(dict(chkS2_9='on') if rules.late_surrender else {}),
           S_10='LS_10' if rules.late_surrender else 'NS_10',
           S_A='LS_A' if rules.late_surrender else 'NS_A',
-          txt2=n, txt3=n, txt4=n, txt5=n, txt6=n,
+          txt2=n,
+          txt3=n,
+          txt4=n,
+          txt5=n,
+          txt6=n,
           txtTotCards=rules.num_decks * DECK_SIZE,
-          txt7=n, txt8=n, txt9=n, txt10=n*4, txt1=n,
+          txt7=n,
+          txt8=n,
+          txt9=n,
+          txt10=n * 4,
+          txt1=n,
           txtHand=''.join(f'{card} ' for card in player_cards),
           txtHandVal=f'Total = {softness} {total}: num cards = {len(player_cards)}',
-          bCompute='Compute')
+          bCompute='Compute',
+      )
       data = urllib.parse.urlencode(data_dict).encode()
       request = urllib.request.Request(url, data=data)  # Generates POST.
       with urllib.request.urlopen(request) as response:
-        text: str = response.read().decode()
+        text: str = response.read().decode('utf-8')
       return text
 
     except (OverflowError, KeyError, urllib.error.URLError):
@@ -3818,8 +4254,13 @@ class BjstratHandCalculator(HandCalculator):
       return None
 
     lines = text.splitlines()
-    labels = {Action.STAND: ('Stand',), Action.HIT: ('Hit',), Action.DOUBLE: ('Double',),
-              Action.SPLIT: ('SPL3', 'SPL2', 'SPL1'), Action.SURRENDER: ('Surr',)}[action]
+    labels = {
+        Action.STAND: ('Stand',),
+        Action.HIT: ('Hit',),
+        Action.DOUBLE: ('Double',),
+        Action.SPLIT: ('SPL3', 'SPL2', 'SPL1'),
+        Action.SURRENDER: ('Surr',),
+    }[action]
     for label in labels:
       action_s = f'class="vertLabel">{label}</label>'
       (index0,) = (n for n, line in enumerate(lines) if action_s in line)
@@ -3840,6 +4281,7 @@ class BjstratHandCalculator(HandCalculator):
     check_eq(self(((9, 9), 1), Action.STAND, Rules(num_decks=1)), -0.1861)
     # check_eq(self(((9, 9), 1), Action.STAND, Rules(num_decks=2)), -0.2066)
 
+
 # %%
 HAND_CALCULATORS = {
     hand_calc.name: hand_calc
@@ -3850,8 +4292,10 @@ print(list(HAND_CALCULATORS))
 
 # %%
 if 0:
-  check_eq(HAND_CALCULATORS['bjstrat'].read_downloaded(Rules(num_decks=1))[
-      ((9, 9), 1), Action.STAND], -0.1861)
+  check_eq(
+      HAND_CALCULATORS['bjstrat'].read_downloaded(Rules(num_decks=1))[((9, 9), 1), Action.STAND],
+      -0.1861,
+  )
 
 # %%
 for _hand_calc in HAND_CALCULATORS.values():
@@ -3860,9 +4304,13 @@ for _hand_calc in HAND_CALCULATORS.values():
 # %%
 if 0:
   if 'wiz' in HAND_CALCULATORS and 'bjstrat' in HAND_CALCULATORS:
-    check_eq({name: hand_calc(((2, 3, 5), 7), Action.HIT, Rules(num_decks=1))
-              for name, hand_calc in HAND_CALCULATORS.items()},
-             {'wiz': 0.29369908629477176, 'bjstrat': 0.2937})
+    check_eq(
+        {
+            name: hand_calc(((2, 3, 5), 7), Action.HIT, Rules(num_decks=1))
+            for name, hand_calc in HAND_CALCULATORS.items()
+        },
+        {'wiz': 0.29369908629477176, 'bjstrat': 0.2937},
+    )
 
 
 # %%
@@ -3904,6 +4352,7 @@ if 0:
 # ### Our hand calculator
 # <a name="Our-hand-calculator"></a>
 
+
 # %%
 class ProbHandCalculator(HandCalculator):
   """Hand analysis using probabilistic approach."""
@@ -3934,8 +4383,12 @@ def best_action_for_hand(hand: Hand, rules: Rules, hand_calc: HandCalculator) ->
 
 # %%
 def post_peek_from_initial_reward_and_sdv(
-    initial_reward: float, initial_reward_sdv: float, hand: Hand,
-    action: Action, rules: Rules) -> tuple[float, float]:
+    initial_reward: float,
+    initial_reward_sdv: float,
+    hand: Hand,
+    action: Action,
+    rules: Rules,
+) -> tuple[float, float]:
   """Return the post-peek expected reward and reward_sdv, removing dealer bj if OBO."""
   state = hand[0], hand[1], ()
   prob_dealer_bj = probability_dealer_bj(state, rules) if rules.obo else 0.0
@@ -3943,21 +4396,30 @@ def post_peek_from_initial_reward_and_sdv(
   player_bj = sorted(player_cards) == [1, 10] and action is Action.STAND
   player_reward_if_dealer_bj = 0.0 if player_bj else -1.0
   post_peek_reward = (initial_reward - player_reward_if_dealer_bj * prob_dealer_bj) / (
-      1.0 - prob_dealer_bj)
+      1.0 - prob_dealer_bj
+  )
   post_peek_reward_sdv = initial_reward_sdv / (1.0 - prob_dealer_bj)
   return post_peek_reward, post_peek_reward_sdv
 
 
 # %%
-def post_peek_reward_from_initial_reward(initial_reward: float, hand: Hand,
-                                         action: Action, rules: Rules) -> float:
+def post_peek_reward_from_initial_reward(
+    initial_reward: float,
+    hand: Hand,
+    action: Action,
+    rules: Rules,
+) -> float:
   """Return the post-peek expected reward, removing dealer bj if OBO."""
   return post_peek_from_initial_reward_and_sdv(initial_reward, 0.0, hand, action, rules)[0]
 
 
 # %%
-def post_peek_reward_for_action(state: State, rules: Rules, strategy: Strategy,
-                                action: Action) -> float:
+def post_peek_reward_for_action(
+    state: State,
+    rules: Rules,
+    strategy: Strategy,
+    action: Action,
+) -> float:
   """Return the post-peek expected reward, removing dealer bj if OBO."""
   hand = state[:2]
   player_cards, _ = hand
@@ -3971,8 +4433,12 @@ def post_peek_reward_for_action(state: State, rules: Rules, strategy: Strategy,
 
 
 # %%
-def initial_reward_from_post_peek_reward(post_peek_reward: float, hand: Hand,
-                                         action: Action, rules: Rules) -> float:
+def initial_reward_from_post_peek_reward(
+    post_peek_reward: float,
+    hand: Hand,
+    action: Action,
+    rules: Rules,
+) -> float:
   """Return the initial expected reward, adding dealer bj if OBO."""
   state = hand[0], hand[1], ()
   prob_dealer_bj = probability_dealer_bj(state, rules) if rules.obo else 0.0
@@ -3980,14 +4446,20 @@ def initial_reward_from_post_peek_reward(post_peek_reward: float, hand: Hand,
   assert card1 <= card2
   player_bj = (card1, card2) == (1, 10) and action is Action.STAND
   player_reward_if_dealer_bj = 0.0 if player_bj else -1.0
-  initial_reward = (post_peek_reward * (1.0 - prob_dealer_bj) +
-                    player_reward_if_dealer_bj * prob_dealer_bj)
+  initial_reward = (
+      post_peek_reward * (1.0 - prob_dealer_bj) + player_reward_if_dealer_bj * prob_dealer_bj
+  )
   return initial_reward
 
 
 # %%
-def analyze_hand(hand: Hand, rules: Rules, *,
-                 actions: Iterable[Action] = (), prefix: str = '') -> None:
+def analyze_hand(
+    hand: Hand,
+    rules: Rules,
+    *,
+    actions: Iterable[Action] = (),
+    prefix: str = '',
+) -> None:
   """Compare action reward values for a specific hand.  If OBO, assumes post-peek and dealer does
   not have blackjack.
 
@@ -3998,8 +4470,9 @@ def analyze_hand(hand: Hand, rules: Rules, *,
   player_cards, _, _ = state
   is_initial_hand = len(player_cards) == 2
   # Skip SURRENDER if OBO because the reward is always -0.5.
-  default_actions = tuple(action for action in Action
-                          if not (rules.obo and action is Action.SURRENDER))
+  default_actions = tuple(
+      action for action in Action if not (rules.obo and action is Action.SURRENDER)
+  )
   actions = tuple(actions) or default_actions
   n1 = 10_000_000 if multiprocessing_is_available() else 2_000_000
   num_hands = [n1 // 2, n1, 100_000_000, 1_000_000_000, 10_000_000_000][EFFORT]
@@ -4012,10 +4485,14 @@ def analyze_hand(hand: Hand, rules: Rules, *,
     bs_best_action = get_best_action(state, rules, BASIC_STRATEGY)
     id_best_action = get_best_action(state, rules, INITIAL_DEPENDENT_STRATEGY)
     cd_best_action = get_best_action(state, rules, COMPOSITION_DEPENDENT_STRATEGY)
-    s = ' '.join(f'{name}={best_action_for_hand(hand, rules, hand_calc).name}'
-                 for name, hand_calc in HAND_CALCULATORS.items())
-    print(f'# Best_actions: bs={bs_best_action.name} id={id_best_action.name}'
-          f' cd={cd_best_action.name} {s}')
+    s = ' '.join(
+        f'{name}={best_action_for_hand(hand, rules, hand_calc).name}'
+        for name, hand_calc in HAND_CALCULATORS.items()
+    )
+    print(
+        f'# Best_actions: bs={bs_best_action.name} id={id_best_action.name}'
+        f' cd={cd_best_action.name} {s}'
+    )
 
   for action in actions:
     # bs_reward = post_peek_reward_for_action(state, rules, BASIC_STRATEGY, action)
@@ -4025,13 +4502,15 @@ def analyze_hand(hand: Hand, rules: Rules, *,
     cd_reward = post_peek_reward_for_action(state, rules, COMPOSITION_DEPENDENT_STRATEGY, action)
 
     if is_initial_hand or action is id_best_action:
-      sim_strategy = Strategy(attention=Attention.INITIAL_CARDS_AND_TOTAL,
-                              first_actions=frozenset({action}))
+      sim_strategy = Strategy(
+          attention=Attention.INITIAL_CARDS_AND_TOTAL, first_actions=frozenset({action})
+      )
       # Ideally, we would compute only the subset of the action_table that corresponds to the set
       # of possible hands simulated here.  However, that would make memoization difficult.
       sim_reward, sim_reward_sdv = monte_carlo_hand(hand, rules, sim_strategy, num_hands)
       sim_reward, sim_reward_sdv = post_peek_from_initial_reward_and_sdv(
-          sim_reward, sim_reward_sdv, hand, action, rules)
+          sim_reward, sim_reward_sdv, hand, action, rules
+      )
       sim_sdv_of_average = sim_reward_sdv / num_hands**0.5
       sim_plus_minus = sim_sdv_of_average * PLUS_MINUS_STANDARD_DEVIATIONS
       sim_precision_s = f'{PLUS_MINUS_CHAR}{sim_plus_minus:.6f}'
@@ -4049,8 +4528,10 @@ def analyze_hand(hand: Hand, rules: Rules, *,
         continue
       # Because there is no cut-card effect, cd_reward is accurate; however, for a SPLIT action,
       # other calculators may be considering a different Attention setting.
-      cd_threshold = {'wiz': 1e-6 if EFFORT >= 3 else 1e-4,
-                      'bjstrat': 1e-4 if abs(reward) < 1 else 1e-3}[name]
+      cd_threshold = {
+          'wiz': 1e-6 if EFFORT >= 3 else 1e-4,
+          'bjstrat': 1e-4 if abs(reward) < 1 else 1e-3,
+      }[name]
       cd_is_close = abs(cd_reward - reward) <= cd_threshold
       s_warning = ' ' if cd_is_close else '*'
       online_s += f' {name}:{reward: .6f}{s_warning}'
@@ -4084,7 +4565,10 @@ if 0:
 
 # %%
 def look_for_hands_with_differences_in_calculated_optimal_actions(
-    rules: Rules, *, expected_differences: list[Hand] | None = None) -> None:
+    rules: Rules,
+    *,
+    expected_differences: list[Hand] | None = None,
+) -> None:
   """Look for differences in optimal actions across hand calculators on all initial hands."""
   for name, hand_calc in HAND_CALCULATORS.items():
     if not hand_calc.is_downloaded(rules):
@@ -4097,7 +4581,9 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
       hand = (card1, card2), dealer1
       cd_reward_actions = sorted(
           ((cd_hand_calc(hand, action, rules), action) for action in Action),
-          key=lambda t: (t[0], t[1].value), reverse=True)
+          key=lambda t: (t[0], t[1].value),
+          reverse=True,
+      )
       cd_best_action = cd_reward_actions[0][1]
 
       all_reward_actions = {}
@@ -4107,24 +4593,37 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
           continue
         all_reward_actions[name] = reward_actions = sorted(
             ((hh.assert_not_none(hand_calc(hand, action, rules)), action) for action in Action),
-            key=lambda t: (t[0], t[1].value), reverse=True)
+            key=lambda t: (t[0], t[1].value),
+            reverse=True,
+        )
         best_action = reward_actions[0][1]
         # (Bjstrat has a reward tie for ((2, 6), 5) on Rules(num_decks=1, hit_soft17=False).)
-        if not (best_action is cd_best_action or
-                (len(reward_actions) > 1 and reward_actions[1][0] == reward_actions[0][0] and
-                 reward_actions[1][1] is cd_best_action)):
+        if not (
+            best_action is cd_best_action
+            or (
+                len(reward_actions) > 1
+                and reward_actions[1][0] == reward_actions[0][0]
+                and reward_actions[1][1] is cd_best_action
+            )
+        ):
           found_unexpected = True
 
       if found_unexpected:
         if differences:
           print()
         print(f'# {hand=}  {EFFORT=}')
-        text = ' '.join(f'{action.name}:{reward: .6f}' for reward, action in cd_reward_actions
-                        if reward != DISALLOWED)
+        text = ' '.join(
+            f'{action.name}:{reward: .6f}'
+            for reward, action in cd_reward_actions
+            if reward != DISALLOWED
+        )
         print(f'#  {"cd":7}: {text}'.rstrip())
         for name, reward_actions in all_reward_actions.items():
-          text = ' '.join(f'{action.name}:{reward: .6f}' for reward, action in reward_actions
-                          if reward != DISALLOWED)
+          text = ' '.join(
+              f'{action.name}:{reward: .6f}'
+              for reward, action in reward_actions
+              if reward != DISALLOWED
+          )
           print(f'#  {name:7}: {text}'.rstrip())
         differences.append(hand)
 
@@ -4158,6 +4657,7 @@ if 0:
 #   &mdash; successive branched sums; overly simple.
 # - https://easymoneyblackjack.com/blackjack-house-edge-calculator/
 #   &mdash; successive branched sums; overly simple.
+
 
 # %%
 class HouseEdgeCalculator:
@@ -4205,15 +4705,34 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
         ('hit_split_aces', (False, True)),
         ('obo', (False, True)),
         ('late_surrender', (False, True)),
-        ('blackjack_payout', (6/5, 1.5))]
+        ('blackjack_payout', (6 / 5, 1.5)),
+    ]
     self.percent_offset_if_blackjack_payout65 = {
-        1: 1.394773, 2: 1.373499, 4: 1.363115, 5: 1.361057, 6: 1.359690, 8: 1.357984}  # [ndecks].
+        1: 1.394773,
+        2: 1.373499,
+        4: 1.363115,
+        5: 1.361057,
+        6: 1.359690,
+        8: 1.357984,
+    }  # [num_decks].
     # Offset for basic strategy and use of cut_card (at unspecified position).
     self.percent_offset_if_bs_and_cut_card = {
-        1: 0.1517, 2: 0.0770, 4: 0.0395, 5: 0.0320, 6: 0.0231, 8: 0.0159}
+        1: 0.1517,
+        2: 0.0770,
+        4: 0.0395,
+        5: 0.0320,
+        6: 0.0231,
+        8: 0.0159,
+    }
     # Offset to basic strategy edge if not using a cut-card.
     self.percent_offset_if_continuous_shuffler = {
-        1: -0.113, 2: -0.063, 4: -0.034, 5: -0.028, 6: -0.020, 8: -0.014}
+        1: -0.113,
+        2: -0.063,
+        4: -0.034,
+        5: -0.028,
+        6: -0.020,
+        8: -0.014,
+    }
 
   @staticmethod
   def _read_table() -> _NDArray:
@@ -4224,9 +4743,10 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
     else:
       try:
         url = 'https://wizardofodds.com/games/blackjack/calculator/'
-        with urllib.request.urlopen(urllib.request.Request(
-            url, headers={'User-Agent': 'Chrome'})) as response:
-          text = response.read().decode()
+        with urllib.request.urlopen(
+            urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
+        ) as response:
+          text = response.read().decode('utf-8')
       except urllib.error.URLError:
         table = np.full((), math.inf)
         return table
@@ -4241,27 +4761,31 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
 
   def __call__(self, rules: Rules, strategy: Strategy) -> float | None:
     """Return the house edge, or None if unknown from tables."""
-    unsupported = (strategy not in (BASIC_STRATEGY, COMPOSITION_DEPENDENT_STRATEGY) or
-                   (strategy == COMPOSITION_DEPENDENT_STRATEGY and rules.cut_card != 0) or
-                   rules.double_split_aces or self.table.ndim == 0)
+    unsupported = (
+        strategy not in (BASIC_STRATEGY, COMPOSITION_DEPENDENT_STRATEGY)
+        or (strategy == COMPOSITION_DEPENDENT_STRATEGY and rules.cut_card != 0)
+        or rules.double_split_aces
+        or self.table.ndim == 0
+    )
     if unsupported:
       return None
 
     try:
       num_decks = int(rules.num_decks)  # (OverflowError if it equals math.inf)
       edge_percent: float = self.table[
-        {1: 0, 2: 1, 4: 2, 5: 3, 6: 4, 8: 5}[num_decks],
-        int(rules.hit_soft17),
-        int(rules.double_after_split),
-        {0: 0, 9: 1, 10: 2}[rules.double_min_total],
-        {2.0: 0, 3.0: 1, 4.0: 2}[rules.split_to_num_hands],
-        int(rules.resplit_aces),
-        int(rules.hit_split_aces),
-        int(rules.obo),
-        int(rules.late_surrender)]
-      edge_percent += {
-          1.5: 0.0,
-          6/5: self.percent_offset_if_blackjack_payout65[num_decks]}[rules.blackjack_payout]
+          {1: 0, 2: 1, 4: 2, 5: 3, 6: 4, 8: 5}[num_decks],
+          int(rules.hit_soft17),
+          int(rules.double_after_split),
+          {0: 0, 9: 1, 10: 2}[rules.double_min_total],
+          {2.0: 0, 3.0: 1, 4.0: 2}[rules.split_to_num_hands],
+          int(rules.resplit_aces),
+          int(rules.hit_split_aces),
+          int(rules.obo),
+          int(rules.late_surrender),
+      ]
+      edge_percent += {1.5: 0.0, 6 / 5: self.percent_offset_if_blackjack_payout65[num_decks]}[
+          rules.blackjack_payout
+      ]
     except (OverflowError, KeyError):
       return None
 
@@ -4367,11 +4891,16 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
 
   def _uncached_call(self, rules: Rules, strategy: Strategy) -> float | None:
     """Return the house edge (or None if unknown)."""
-    unsupported = (rules.num_decks not in (1, 2, 4, 6, 8) or rules.blackjack_payout != 1.5 or
-                   rules.double_min_total not in (0, 9, 10) or
-                   rules.split_to_num_hands not in (2, 3, 4) or rules.hit_split_aces or
-                   rules.double_split_aces or rules.cut_card != 0 or
-                   strategy != BASIC_STRATEGY)
+    unsupported = (
+        rules.num_decks not in (1, 2, 4, 6, 8)
+        or rules.blackjack_payout != 1.5
+        or rules.double_min_total not in (0, 9, 10)
+        or rules.split_to_num_hands not in (2, 3, 4)
+        or rules.hit_split_aces
+        or rules.double_split_aces
+        or rules.cut_card != 0
+        or strategy != BASIC_STRATEGY
+    )
     if unsupported:
       return None
 
@@ -4379,18 +4908,21 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
       return None  # Response would contain "HE":"".
 
     double = {0: 'DA2', 9: 'D9-11', 10: 'D10-11'}[rules.double_min_total]
-    url = ('https://members.blackjackapprenticeship.com/wp-content/BJA_apps/BJACALC/app/api.php'
-           f'?decks={rules.num_decks}'
-           f'&SH17={"H17" if rules.hit_soft17 else "S17"}'
-           f'&DAS={"Yes" if rules.double_after_split else "No"}'
-           f'&DBL={double}&S_P={rules.split_to_num_hands}'
-           f'&S_A={"Yes" if rules.resplit_aces else "No"}'
-           f'&OB={"Yes" if rules.obo else "No"}'
-           f'&SUR={"Yes" if rules.late_surrender else "No"}')
+    url = (
+        'https://members.blackjackapprenticeship.com/wp-content/BJA_apps/BJACALC/app/api.php'
+        f'?decks={rules.num_decks}'
+        f'&SH17={"H17" if rules.hit_soft17 else "S17"}'
+        f'&DAS={"Yes" if rules.double_after_split else "No"}'
+        f'&DBL={double}&S_P={rules.split_to_num_hands}'
+        f'&S_A={"Yes" if rules.resplit_aces else "No"}'
+        f'&OB={"Yes" if rules.obo else "No"}'
+        f'&SUR={"Yes" if rules.late_surrender else "No"}'
+    )
     try:
-      with urllib.request.urlopen(urllib.request.Request(
-          url, headers={'User-Agent': 'Chrome'})) as response:
-        text = response.read().decode()  # {"decks":"6","HE":"0.529"}
+      with urllib.request.urlopen(
+          urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
+      ) as response:
+        text = response.read().decode('utf-8')  # {"decks":"6","HE":"0.529"}
     except urllib.error.URLError:
       return None
 
@@ -4422,8 +4954,9 @@ class WikipediaHouseEdgeCalculator(HouseEdgeCalculator):
 
   def __call__(self, rules: Rules, strategy: Strategy) -> float | None:
     """Return the house edge, or None if unknown."""
-    known_rules = [Rules(num_decks=num_decks, late_surrender=False)
-                   for num_decks in (1, 2, 4, 6, 8)]
+    known_rules = [
+        Rules(num_decks=num_decks, late_surrender=False) for num_decks in (1, 2, 4, 6, 8)
+    ]
     if rules not in known_rules or strategy != Strategy():
       return None
     num_decks = int(rules.num_decks)
@@ -4437,8 +4970,12 @@ class WikipediaHouseEdgeCalculator(HouseEdgeCalculator):
 # %%
 EDGE_CALCULATORS = {
     edge_calc.name: edge_calc
-    for edge_calc in [wizard_edge_calc, BjstratHouseEdgeCalculator(),
-                      BjaHouseEdgeCalculator(), WikipediaHouseEdgeCalculator()]
+    for edge_calc in [
+        wizard_edge_calc,
+        BjstratHouseEdgeCalculator(),
+        BjaHouseEdgeCalculator(),
+        WikipediaHouseEdgeCalculator(),
+    ]
     if edge_calc.is_available()
 }
 print(list(EDGE_CALCULATORS))
@@ -4461,8 +4998,12 @@ def configuration_text(rules: Rules, strategy: Strategy, verbose: bool = False) 
 
 
 # %%
-def report_edge(rules: Rules, strategy: Strategy = Strategy(), *,
-                prefix: str | None = None) -> None:
+def report_edge(
+    rules: Rules,
+    strategy: Strategy = Strategy(),
+    *,
+    prefix: str | None = None,
+) -> None:
   """Print comparison of different computed house edges.
 
   We report: `prob`: probabilistic analysis, `sim`: Monte Carlo simulation, `wiz`: WizardOfOdds,
@@ -4480,12 +5021,18 @@ def report_edge(rules: Rules, strategy: Strategy = Strategy(), *,
   prob_tolerance = 0.001 / 100 if prob_is_accurate else math.inf
 
   sim_is_accurate = strategy.attention in (
-      Attention.TOTAL_OF_CARDS, Attention.INITIAL_CARDS_AND_TOTAL)
+      Attention.TOTAL_OF_CARDS,
+      Attention.INITIAL_CARDS_AND_TOTAL,
+  )
   start_time = time.monotonic()
-  strategy2 = (strategy if sim_is_accurate else
-               dataclasses.replace(strategy, attention=Attention.INITIAL_CARDS_AND_TOTAL))
+  strategy2 = (
+      strategy
+      if sim_is_accurate
+      else dataclasses.replace(strategy, attention=Attention.INITIAL_CARDS_AND_TOTAL)
+  )
   sim_house_edge, played_hands, sim_house_edge_sdv = monte_carlo_house_edge(
-      rules, strategy2, get_num_hands())
+      rules, strategy2, get_num_hands()
+  )
   sim_elapsed = time.monotonic() - start_time
   sdv_of_average = sim_house_edge_sdv / played_hands**0.5
   sim_plus_minus = sdv_of_average * PLUS_MINUS_STANDARD_DEVIATIONS
@@ -4499,8 +5046,10 @@ def report_edge(rules: Rules, strategy: Strategy = Strategy(), *,
     house_edge = edge_calc(rules, strategy)
     if house_edge is None:
       continue
-    is_close = (abs(house_edge - prob_house_edge) <= prob_tolerance and
-                abs(house_edge - sim_house_edge) <= sim_tolerance)
+    is_close = (
+        abs(house_edge - prob_house_edge) <= prob_tolerance
+        and abs(house_edge - sim_house_edge) <= sim_tolerance
+    )
     warning_s = ' ' if is_close else '*' if name in ('wiz', 'bjstrat') else '+'
     ref_s += f' {name}:{house_edge*100:6.3f}%{warning_s}'
 
@@ -4511,7 +5060,7 @@ def report_edge(rules: Rules, strategy: Strategy = Strategy(), *,
 def analyze_number_of_decks(rules: Rules, strategy: Strategy = Strategy()) -> None:
   """Tabulate the house edge as a function of the number of decks."""
   print(f'# {rules} {EFFORT=}')
-  for num_decks in ([1, 2, 4, 6, 8, 20, math.inf] if EFFORT > 0 else [1, 6]):
+  for num_decks in [1, 2, 4, 6, 8, 20, math.inf] if EFFORT > 0 else [1, 6]:
     cut_card = 0 if rules.cut_card == 0 else default_cut_card(num_decks)
     modified_rules = dataclasses.replace(rules, num_decks=num_decks, cut_card=cut_card)
     report_edge(modified_rules, strategy, prefix=f'# ndecks={num_decks:<3} ')
@@ -4557,9 +5106,11 @@ if 0:  # Quick check on accuracy of probabilistic analysis and simulation.
 
 # %%
 if 0:
-  check_eq(EDGE_CALCULATORS['bjstrat'](Rules(num_decks=8, cut_card=0),
-                                       COMPOSITION_DEPENDENT_STRATEGY) * 100,
-           0.5530080610784475)
+  check_eq(
+      EDGE_CALCULATORS['bjstrat'](Rules(num_decks=8, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
+      * 100,
+      0.5530080610784475,
+  )
 
 # %% [markdown]
 # # Results
@@ -4635,8 +5186,10 @@ verify_action_tables(Rules(hit_soft17=False), expected=EXPECTED_BASIC_STRATEGY_A
 
 
 # %%
-def table_difference_locations(tables1: Mapping[str, _NDArray],
-                               tables2: Mapping[str, _NDArray]) -> dict[str, list[tuple[int, int]]]:
+def table_difference_locations(
+    tables1: Mapping[str, _NDArray],
+    tables2: Mapping[str, _NDArray],
+) -> dict[str, list[tuple[int, int]]]:
   """Identify the locations of any differing entries in table sets."""
   differences = {}
   for (name1, table1), (name2, table2) in zip(tables1.items(), tables2.items(), strict=True):
@@ -4646,9 +5199,12 @@ def table_difference_locations(tables1: Mapping[str, _NDArray],
 
 
 # %%
-check_eq(table_difference_locations(basic_strategy_tables(Rules()),
-                                    basic_strategy_tables(Rules(hit_soft17=False))),
-         {'hard': [[6, 9], [10, 9], [12, 9]], 'soft': [[5, 0], [6, 4]], 'pair': [[6, 9]]})
+check_eq(
+    table_difference_locations(
+        basic_strategy_tables(Rules()), basic_strategy_tables(Rules(hit_soft17=False))
+    ),
+    {'hard': [[6, 9], [10, 9], [12, 9]], 'soft': [[5, 0], [6, 4]], 'pair': [[6, 9]]},
+)
 
 # %% [markdown]
 # - The same actions computed above for 6 decks are also optimal for 4 decks and 8 decks,
@@ -4673,8 +5229,9 @@ def verify_strategy_table_for_infinite_decks() -> None:
   """Check that the infinite-deck action table has a single differing entry."""
   tables_6 = basic_strategy_tables(Rules(num_decks=6))
   tables_inf = basic_strategy_tables(Rules(num_decks=math.inf))
-  check_eq(table_difference_locations(tables_6, tables_inf),
-           {'hard': [], 'soft': [[0, 3]], 'pair': []})
+  check_eq(
+      table_difference_locations(tables_6, tables_inf), {'hard': [], 'soft': [[0, 3]], 'pair': []}
+  )
   check_eq(tables_6['soft'][0, 3], 'Dh')
   check_eq(tables_inf['soft'][0, 3], 'H')
 
@@ -4741,11 +5298,16 @@ if 0:
 # %%
 # Verify the 18 table cell differences with respect to the 6-deck strategy.
 if EFFORT >= 2:
-  check_eq(table_difference_locations(basic_strategy_tables(Rules(num_decks=6)),
-                                      basic_strategy_tables(Rules(num_decks=1))),
-           {'hard': [[3, 3], [3, 4], [4, 0], [10, 8], [11, 7]],
-            'soft': [[0, 2], [1, 2], [4, 0], [5, 0]],
-            'pair': [[1, 6], [2, 2], [4, 1], [4, 5], [5, 6], [5, 8], [5, 9], [6, 9], [7, 9]]})
+  check_eq(
+      table_difference_locations(
+          basic_strategy_tables(Rules(num_decks=6)), basic_strategy_tables(Rules(num_decks=1))
+      ),
+      {
+          'hard': [[3, 3], [3, 4], [4, 0], [10, 8], [11, 7]],
+          'soft': [[0, 2], [1, 2], [4, 0], [5, 0]],
+          'pair': [[1, 6], [2, 2], [4, 1], [4, 5], [5, 6], [5, 8], [5, 9], [6, 9], [7, 9]],
+      },
+  )
 
 # %% [markdown]
 # - For the case **dealer stands on soft 17**:
@@ -4753,8 +5315,9 @@ if EFFORT >= 2:
 # %%
 if EFFORT >= 2:
   show_basic_strategy_tables(Rules(num_decks=1, hit_soft17=False))
-  verify_action_tables(Rules(num_decks=1, hit_soft17=False),
-                       expected=EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17)
+  verify_action_tables(
+      Rules(num_decks=1, hit_soft17=False), expected=EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17
+  )
 
 # %% [markdown]
 # These results are identical to those reported in
@@ -4852,14 +5415,17 @@ if EFFORT >= 2:
 
 # %%
 def analyze_differences_using_composition_dependent_strategy(
-    rules: Rules, verbose: bool = True) -> None:
+    rules: Rules,
+    verbose: bool = True,
+) -> None:
   """Find any hands where a composition-dependent strategy has optimal actions that differ from
   those in the basic strategy, for various numbers of decks."""
   for index, num_decks in enumerate([6, 4, 2, 1]):
     if EFFORT <= 1 and num_decks == 1:
       continue
     modified_rules = dataclasses.replace(
-        rules, num_decks=num_decks, cut_card=default_cut_card(num_decks))
+        rules, num_decks=num_decks, cut_card=default_cut_card(num_decks)
+    )
     if verbose:
       if index:
         print()
@@ -4876,8 +5442,10 @@ def analyze_differences_using_composition_dependent_strategy(
         if bs_action is cd_action:
           continue
         if verbose:
-          print(f'#    {card1:2} {card2:6} {dealer1:8}'
-                f'        {bs_action.name:^9}         {cd_action.name:^9}'.rstrip())
+          print(
+              f'#    {card1:2} {card2:6} {dealer1:8}'
+              f'        {bs_action.name:^9}         {cd_action.name:^9}'.rstrip()
+          )
         differences.append((hand, bs_action, cd_action))
 
     if EFFORT >= 1:
@@ -4975,7 +5543,8 @@ def find_significant_reward_differences_across_hand_calculators(rules: Rules) ->
   strategy = COMPOSITION_DEPENDENT_STRATEGY
   num_differences = 0
   for action, (card1, card2), dealer1 in itertools.product(
-      Action, generate_all_initial_cards(), range(1, 11)):
+      Action, generate_all_initial_cards(), range(1, 11)
+  ):
     hand = (card1, card2), dealer1
     state = hand[0], hand[1], ()
     cd_reward = post_peek_reward_for_action(state, rules, strategy, action)
@@ -4984,13 +5553,18 @@ def find_significant_reward_differences_across_hand_calculators(rules: Rules) ->
       # The Bjstrat results report exactly 4 digits.
       # The Wizard results report 16 digits, and seem precise up to 6 digits.
       # The SPLIT rewards have large differences, so we increase their tolerance.
-      tolerance = ({'bjstrat': 0.0003, 'wiz': 0.004}[name] if action is Action.SPLIT else
-                   {'bjstrat': (0.00056 if abs(reward) > 1.0 else 0.000056), 'wiz': 0.6e-6}[name])
+      tolerance = (
+          {'bjstrat': 0.0003, 'wiz': 0.004}[name]
+          if action is Action.SPLIT
+          else {'bjstrat': (0.00056 if abs(reward) > 1.0 else 0.000056), 'wiz': 0.6e-6}[name]
+      )
       difference = reward - cd_reward
       if abs(difference) > tolerance:
         if num_differences < 40:
-          print(f'# For {hand!s:<14} {action.name:<9}: cd={cd_reward: .6f}'
-                f' {name:>7}={reward: .6f}  diff={difference: .6f}')
+          print(
+              f'# For {hand!s:<14} {action.name:<9}: cd={cd_reward: .6f}'
+              f' {name:>7}={reward: .6f}  diff={difference: .6f}'
+          )
         num_differences += 1
   print(f'# Found {num_differences=}')
 
@@ -5043,7 +5617,8 @@ if EFFORT >= 3:
 if 0:
   with temporary_effort(3):  # ~300 s
     find_significant_reward_differences_across_hand_calculators(
-        Rules(num_decks=1, obo=False, late_surrender=False))
+        Rules(num_decks=1, obo=False, late_surrender=False)
+    )
 # [The results are very similar to the set of differences above.]
 # Found num_differences=18
 
@@ -5051,7 +5626,8 @@ if 0:
 if 0:
   with temporary_effort(3):  # ~300 s
     find_significant_reward_differences_across_hand_calculators(
-        Rules(num_decks=1, hit_soft17=False))
+        Rules(num_decks=1, hit_soft17=False)
+    )
 # [The results are again very similar to the set of differences above.]
 # Found num_differences=19
 
@@ -5112,15 +5688,23 @@ if EFFORT >= 3:
 
 # %%
 def demonstrate_importance_of_knowing_prior_split_cards(
-    hand: Hand, rules: Rules = Rules(num_decks=1),
+    hand: Hand,
+    rules: Rules = Rules(num_decks=1),
     strategy: Strategy = Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS),
-    action: Action = Action.HIT) -> None:
+    action: Action = Action.HIT,
+) -> None:
   """Show that the hand reward depends greatly on knowledge of cards from prior splits."""
   card1, card2, card3 = hand[0][0], 9, 6
-  for split_cards in [(), (card1,), (card1, card1), (card1, card1, card1),
-                      (card1, card2), (card1, card1, card2, card2),
-                      (card1, card1, card1, card2, card2, card2),
-                      (card1, card1, card1, card3, card3, card3)]:
+  for split_cards in [
+      (),
+      (card1,),
+      (card1, card1),
+      (card1, card1, card1),
+      (card1, card2),
+      (card1, card1, card2, card2),
+      (card1, card1, card1, card2, card2, card2),
+      (card1, card1, card1, card3, card3, card3),
+  ]:
     state = hand[0], hand[1], split_cards
     reward = reward_for_action(state, rules, strategy, action)
     print(f'# {hand=!s:14} {split_cards=!s:25} {reward=: .6f}')
@@ -5148,7 +5732,8 @@ demonstrate_importance_of_knowing_prior_split_cards(((3, 10), 2))
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
-    Rules(num_decks=2), expected_differences=([] if EFFORT >= 2 else None))
+    Rules(num_decks=2), expected_differences=([] if EFFORT >= 2 else None)
+)
 
 # Wonderful: for a 2-deck shoe, with EFFORT>=2, there are no differences in optimal
 # full-composition-strategy actions wrt to Wizard and Bjstrat.
@@ -5156,7 +5741,8 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
-    Rules(num_decks=1), expected_differences=([((9, 9), 1)] if EFFORT >= 2 else None))
+    Rules(num_decks=1), expected_differences=([((9, 9), 1)] if EFFORT >= 2 else None)
+)
 
 # Wonderful: for a 1-deck shoe, with EFFORT>=2, the only difference in optimal
 # full-composition-strategy actions wrt to Wizard and Bjstrat is a single hand:
@@ -5200,7 +5786,8 @@ if 0:
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
-    Rules(num_decks=1, hit_soft17=False), expected_differences=([] if EFFORT >= 2 else None))
+    Rules(num_decks=1, hit_soft17=False), expected_differences=([] if EFFORT >= 2 else None)
+)
 
 # This time, we consider the case of 1 deck with "dealer stand on soft 17".
 # Wonderful: with EFFORT>=2, there are *no* differences in optimal composition-dependent actions
@@ -5434,8 +6021,13 @@ report_edge(Rules(num_decks=8, hit_soft17=True, resplit_aces=True, cut_card=312)
 # %%
 # https://wizardofodds.com/play/blackjack/ "live dealer casino online rules":
 TYPICAL_ONLINE_DEALER_RULES = Rules(
-    num_decks=8, hit_soft17=False, obo=False, late_surrender=False, split_to_num_hands=2,
-    cut_card=(8 // 2) * DECK_SIZE)
+    num_decks=8,
+    hit_soft17=False,
+    obo=False,
+    late_surrender=False,
+    split_to_num_hands=2,
+    cut_card=(8 // 2) * DECK_SIZE,
+)
 report_edge(TYPICAL_ONLINE_DEALER_RULES)
 # Rules(num_decks=8, hit_soft17=False, obo=False, late_surrender=False, split_to_num_hands=2,
 #   cut_card=208) Strategy() EFFORT=3:
@@ -5448,7 +6040,8 @@ report_edge(TYPICAL_ONLINE_DEALER_RULES)
 # %%
 # https://wizardofodds.com/online-gambling/playn-go/
 PLAYNGO_STANDARD_RULES = Rules(
-    num_decks=6, hit_soft17=False, split_to_num_hands=2, late_surrender=False, cut_card=0)
+    num_decks=6, hit_soft17=False, split_to_num_hands=2, late_surrender=False, cut_card=0
+)
 report_edge(PLAYNGO_STANDARD_RULES)
 # Rules(hit_soft17=False, late_surrender=False, split_to_num_hands=2, cut_card=0) Strategy()
 #   EFFORT=3:
@@ -5456,8 +6049,14 @@ report_edge(PLAYNGO_STANDARD_RULES)
 
 # %%
 PLAYNGO_EUROPEAN_RULES = Rules(
-    num_decks=6, hit_soft17=False, double_min_total=9, obo=False, late_surrender=False,
-    split_to_num_hands=2, cut_card=0)
+    num_decks=6,
+    hit_soft17=False,
+    double_min_total=9,
+    obo=False,
+    late_surrender=False,
+    split_to_num_hands=2,
+    cut_card=0,
+)
 report_edge(PLAYNGO_EUROPEAN_RULES)
 # Rules(hit_soft17=False, obo=False, late_surrender=False, double_min_total=9, split_to_num_hands=2,
 #   cut_card=0) Strategy() EFFORT=3:
@@ -5466,7 +6065,8 @@ report_edge(PLAYNGO_EUROPEAN_RULES)
 
 # %%
 PLAYNGO_SINGLE_DECK_RULES = Rules(
-    num_decks=1, blackjack_payout=6/5, hit_soft17=False, split_to_num_hands=2, cut_card=0)
+    num_decks=1, blackjack_payout=6 / 5, hit_soft17=False, split_to_num_hands=2, cut_card=0
+)
 report_edge(PLAYNGO_SINGLE_DECK_RULES)
 # Rules(num_decks=1, blackjack_payout=1.2, hit_soft17=False, split_to_num_hands=2, cut_card=0)
 #   Strategy() EFFORT=3:
@@ -5476,7 +6076,8 @@ report_edge(PLAYNGO_SINGLE_DECK_RULES)
 # Pitch Blackjack https://www.countingedge.com/blackjack-variations/pitch-blackjack/
 # We are uncertain what `obo` should be set to.
 PITCH_BLACKJACK_SINGLE_DECK_RULES = Rules(
-    num_decks=1, hit_soft17=False, double_after_split=False, cut_card=24)
+    num_decks=1, hit_soft17=False, double_after_split=False, cut_card=24
+)
 report_edge(PITCH_BLACKJACK_SINGLE_DECK_RULES)
 # Rules(num_decks=1, hit_soft17=False, double_after_split=False, cut_card=24) Strategy() EFFORT=3:
 #  house edge: prob~-0.020% (13s)  sim: 0.082% ±0.002%(79s)   wiz: 0.088%*
@@ -5484,7 +6085,8 @@ report_edge(PITCH_BLACKJACK_SINGLE_DECK_RULES)
 # %%
 # Pitch Blackjack https://www.countingedge.com/blackjack-variations/pitch-blackjack/
 PITCH_BLACKJACK_DOUBLE_DECK_RULES = Rules(
-    num_decks=2, hit_soft17=False, double_after_split=False, cut_card=DECK_SIZE)
+    num_decks=2, hit_soft17=False, double_after_split=False, cut_card=DECK_SIZE
+)
 report_edge(PITCH_BLACKJACK_DOUBLE_DECK_RULES)
 # Rules(num_decks=2, hit_soft17=False, double_after_split=False, cut_card=52) Strategy() EFFORT=3:
 #  house edge: prob~ 0.287% (59s)  sim: 0.355% ±0.002%(83s)   wiz: 0.347%*
@@ -5609,16 +6211,21 @@ def analyze_subset_of_player_actions(rules: Rules) -> None:
   """Tabulate the house edge as a function of the subset of player actions."""
   print(f'# {rules} {EFFORT=}')
   empty_set = set[Action]()
-  for omit_actions in [empty_set,
-                       {Action.SURRENDER},
-                       {Action.SURRENDER, Action.SPLIT},
-                       {Action.SURRENDER, Action.DOUBLE},
-                       {Action.SURRENDER, Action.SPLIT, Action.DOUBLE}]:
+  for omit_actions in [
+      empty_set,
+      {Action.SURRENDER},
+      {Action.SURRENDER, Action.SPLIT},
+      {Action.SURRENDER, Action.DOUBLE},
+      {Action.SURRENDER, Action.SPLIT, Action.DOUBLE},
+  ]:
     actions = set(Action) - omit_actions
     strategy = Strategy(first_actions=frozenset(actions))
     sorted_omit_actions = sorted(actions, key=lambda action: action.value)
-    name = ('all (default)' if actions == set(Action) else
-            f'no {",".join(action.name for action in sorted_omit_actions)}')
+    name = (
+        'all (default)'
+        if actions == set(Action)
+        else f'no {",".join(action.name for action in sorted_omit_actions)}'
+    )
     report_edge(rules, strategy, prefix=f'# {name:<25} ')
 
 
@@ -5670,17 +6277,19 @@ def analyze_rule_variations(rules: Rules, pattern: str = '.') -> None:
       wiz_defined, wiz_edge_change = True, wiz_house_edge - wiz_house_edge0
     s_wiz = f'{wiz_edge_change*100:+13.3f}' if wiz_defined else ''
     s_expected = f'       {expected}' if expected else ''
-    print(f'#  {name:29} {prob_edge_change*100:+4.3f}'
-          f' {sim_edge_change*100:+12.3f}{s_wiz:14}{s_expected}'.rstrip())
+    print(
+        f'#  {name:29} {prob_edge_change*100:+4.3f}'
+        f' {sim_edge_change*100:+12.3f}{s_wiz:14}{s_expected}'.rstrip()
+    )
 
   # Casino promotions such as 2:1 bj allow the player to acquire an advantage.
-  run('blackjack payout 2/1', blackjack_payout=2/1)
+  run('blackjack payout 2/1', blackjack_payout=2 / 1)
 
   # "the 6:5 game adds 1.4% to the house edge"
-  run('blackjack payout 6/5', blackjack_payout=6/5, expected='+1.4')
+  run('blackjack payout 6/5', blackjack_payout=6 / 5, expected='+1.4')
 
   # "the 1:1 game increases the house edge by 2.3%"
-  run('blackjack payout 1/1', blackjack_payout=1/1, expected='+2.3')
+  run('blackjack payout 1/1', blackjack_payout=1 / 1, expected='+2.3')
 
   # "decreases the house edge by about 0.2%"
   run('dealer stands soft 17', hit_soft17=False, expected='-0.2')
@@ -5909,8 +6518,10 @@ if EFFORT >= 2:
 
 # %%
 if 0:
-  explore_rule_variations(Rules(num_decks=8, cut_card=0),
-                          Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS))
+  explore_rule_variations(
+      Rules(num_decks=8, cut_card=0),
+      Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS),
+  )
 # There are no discernible changes wrt to the cell above.
 
 # %% [markdown]
@@ -5946,8 +6557,10 @@ if EFFORT >= 2:
 
 # %%
 if 0:
-  explore_rule_variations(Rules(num_decks=1, cut_card=0),
-                          Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS))
+  explore_rule_variations(
+      Rules(num_decks=1, cut_card=0),
+      Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS),
+  )
 # The results are nearly identical to the above.  The reported probabilistic house edge is reduced
 # by 0.001% in about half of the instances.
 
@@ -5985,8 +6598,7 @@ def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) ->
         case 'Simulated':
           num_hands = get_num_hands()
           bs_edge = monte_carlo_house_edge(modified_rules, BASIC_STRATEGY, num_hands)[0]
-          cd_edge = monte_carlo_house_edge(
-              modified_rules, INITIAL_DEPENDENT_STRATEGY, num_hands)[0]
+          cd_edge = monte_carlo_house_edge(modified_rules, INITIAL_DEPENDENT_STRATEGY, num_hands)[0]
 
         case _:
           raise ValueError(solver)
@@ -6061,8 +6673,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 2:
-  analyze_composition_dependent_strategy_with_number_of_decks(
-      Rules(hit_soft17=False, cut_card=0))
+  analyze_composition_dependent_strategy_with_number_of_decks(Rules(hit_soft17=False, cut_card=0))
 # Probabilistic house edge % using Rules(hit_soft17=False, cut_card=0) and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
 #        1               -0.161             -0.205           -0.0443
@@ -6169,8 +6780,12 @@ def get_cut_card_analysis(rules: Rules, strategy: Strategy = Strategy()) -> CutC
 
 
 # %%
-def plot_cut_card_analysis_result(result: CutCardAnalysisResult, *,
-                                  annotate: bool = True, legend: bool = True) -> None:
+def plot_cut_card_analysis_result(
+    result: CutCardAnalysisResult,
+    *,
+    annotate: bool = True,
+    legend: bool = True,
+) -> None:
   """Create a plot of the house edge as a function of the cut-card position."""
   num_decks = int(result.rules.num_decks)
   cut_card = result.rules.cut_card
@@ -6182,39 +6797,63 @@ def plot_cut_card_analysis_result(result: CutCardAnalysisResult, *,
   ax.plot(*zip(*tuple(graph.items())))
   dots = {k: v for k, v in graph.items() if k in [1, 2, 3, 4, max_cut_card, cut_card]}
   ax.plot(*zip(*tuple(dots.items())), 'o')
-  ax.set_title('House edge as function of cut-card depth'
-               f' for {num_decks} deck{"s" if num_decks != 1 else ""}')
-  ax.set(ylabel='House edge %', xlabel='Number of shoe cards in front of cut-card',
-         xlim=[0, num_decks * DECK_SIZE + 1])
+  ax.set_title(
+      'House edge as function of cut-card depth'
+      f' for {num_decks} deck{"s" if num_decks != 1 else ""}'
+  )
+  ax.set(
+      ylabel='House edge %',
+      xlabel='Number of shoe cards in front of cut-card',
+      xlim=[0, num_decks * DECK_SIZE + 1],
+  )
   # ax.set(ylim=[0, ax.get_ylim()[1] + 0.02])
   yptp = ax.get_ylim()[1] - ax.get_ylim()[0]
   ax.set(ylim=[0 if num_decks == 1 else ax.get_ylim()[0], ax.get_ylim()[1] + yptp * 0.1])
 
   if annotate:
-    ax.annotate(f'default: {graph[cut_card]:.3f}%', xy=(cut_card, graph[cut_card]),
-                xytext=(cut_card, graph[cut_card] + yptp * 0.12),
-                horizontalalignment='center', arrowprops=dict(arrowstyle='->', lw=1))
-    ax.annotate(f'continuous shuffle: {graph[4]:.3f}%', xy=(4, graph[4]),
-                xytext=(7 * num_decks, graph[4]), ha='left', va='center',
-                arrowprops=dict(arrowstyle='->', lw=1))
-    ax.annotate(f'{max_cut_card} front cards: {max_house_edge:.3f}%',
-                xy=(max_cut_card, max_house_edge),
-                xytext=(3 + 13 * num_decks, max_house_edge + yptp * 0.05), ha='center',
-                arrowprops=dict(arrowstyle='->', lw=1))
+    ax.annotate(
+        f'default: {graph[cut_card]:.3f}%',
+        xy=(cut_card, graph[cut_card]),
+        xytext=(cut_card, graph[cut_card] + yptp * 0.12),
+        horizontalalignment='center',
+        arrowprops=dict(arrowstyle='->', lw=1),
+    )
+    ax.annotate(
+        f'continuous shuffle: {graph[4]:.3f}%',
+        xy=(4, graph[4]),
+        xytext=(7 * num_decks, graph[4]),
+        ha='left',
+        va='center',
+        arrowprops=dict(arrowstyle='->', lw=1),
+    )
+    ax.annotate(
+        f'{max_cut_card} front cards: {max_house_edge:.3f}%',
+        xy=(max_cut_card, max_house_edge),
+        xytext=(3 + 13 * num_decks, max_house_edge + yptp * 0.05),
+        ha='center',
+        arrowprops=dict(arrowstyle='->', lw=1),
+    )
     last = num_decks * DECK_SIZE - 1
-    ax.annotate('(mid-hand shoe reshuffle)', xy=(last, graph[last]),
-                xytext=(43 * num_decks, graph[last] - yptp * 0.18), ha='center',
-                arrowprops=dict(arrowstyle='->', lw=1))
+    ax.annotate(
+        '(mid-hand shoe reshuffle)',
+        xy=(last, graph[last]),
+        xytext=(43 * num_decks, graph[last] - yptp * 0.18),
+        ha='center',
+        arrowprops=dict(arrowstyle='->', lw=1),
+    )
 
   if legend:
     sorted_first_actions = sorted(result.strategy.first_actions, key=lambda action: action.value)
     first_actions_s = '{' + ','.join(action.name for action in sorted_first_actions) + '}'
-    legend_text = [repr(result.rules).replace(f', {cut_card=}', ''),
-                   re.sub(r'frozenset\(.*?\)', first_actions_s, repr(result.strategy)),
-                   f'Simulation(num_shoes={result.num_shoes:_})']
+    legend_text = [
+        repr(result.rules).replace(f', {cut_card=}', ''),
+        re.sub(r'frozenset\(.*?\)', first_actions_s, repr(result.strategy)),
+        f'Simulation(num_shoes={result.num_shoes:_})',
+    ]
 
     def wrap(text: str) -> str:
       return '\n'.join(textwrap.wrap(text, 90, subsequent_indent='  '))
+
     text = '\n\n'.join([wrap(s) for s in legend_text])
     ax.text(0.30, 0.15, text, transform=ax.transAxes, fontsize=5.5)
 
@@ -6441,8 +7080,10 @@ hh.analyze_functools_caches(globals())
 # %%
 def show_added_global_variables_sorted_by_type() -> None:
   """Report any new global variables introduced by this notebook."""
-  ok_typenames = ('ABCMeta EnumMeta EnumType type function partial'
-                  ' _lru_cache_wrapper CPUDispatcher CUDADispatcher').split()
+  ok_typenames = (
+      'ABCMeta EnumMeta EnumType type function partial'
+      ' _lru_cache_wrapper CPUDispatcher CUDADispatcher'
+  ).split()
   for typename, name in sorted((type(value).__name__, name) for name, value in globals().items()):
     is_ok = (
         name in _ORIGINAL_GLOBALS
@@ -6456,6 +7097,7 @@ def show_added_global_variables_sorted_by_type() -> None:
       print(f'{typename:24} {name}')
 
 
+# %%
 show_added_global_variables_sorted_by_type()
 
 # %%
@@ -6492,6 +7134,7 @@ def run_lint(filename: str) -> None:
   hh.run('echo pylint; pylint -j8 . || true')
 
 
+# %%
 if 0:
   run_lint('blackjack.py')
 
