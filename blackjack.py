@@ -84,7 +84,6 @@
 
 # %%
 # ** Future to-do?
-# run_simulations_all_cut_cards_cuda()
 # For CUDA, make action_table.nbytes=144000 somehow fit into 64K constant memory.
 # Try numba.njit(nogil=True) and multithreading; https://stackoverflow.com/a/45612308.
 # Using prob or sim, compute house edge over many parameters and fit a function.
@@ -350,10 +349,7 @@ def default_cut_card(num_decks: float) -> int:
 @hh.terse_str
 @dataclasses.dataclass(frozen=True)
 class Rules:
-  """Blackjack rules (many variations); create using `Rules.make(**kwargs)`."""
-
-  _create_using_make: bool = dataclasses.field(hash=False, repr=False)
-  """Dummy field introduced to enforce instance creation using Rules.make()."""
+  """Blackjack rules (many variations)."""
 
   num_decks: float = DEFAULT_NUM_DECKS
   """Number of decks in the shoe, e.g., 1, 2, 4, 6, 8, or math.inf."""
@@ -398,7 +394,7 @@ class Rules:
   double_split_aces: bool = False
   """Allow doubling after splitting aces.  Rare."""
 
-  cut_card: int = default_cut_card(DEFAULT_NUM_DECKS)
+  cut_card: int = -1
   """Number of shoe cards in front of the cut-card.  The shoe is reshuffled after completion of
   the hand during which the cut-card is exposed.  The default is a positive value that depends
   on `num_decks`.  The minimum value is 0, in which case the shoe is reshuffled after every hand,
@@ -409,42 +405,35 @@ class Rules:
   """The number of players affects how quickly the cut-card is reached.  Not yet implemented."""
 
   def __post_init__(self) -> None:
-    """Check validity of constructed rules."""
-    ndecks = self.num_decks
-    assert ndecks == math.inf or (ndecks == int(ndecks) and ndecks >= 1)
+    """Adjust cut_card and check validity of constructed rules."""
+    num_decks = self.num_decks
+    assert num_decks == math.inf or (num_decks == int(num_decks) and num_decks >= 1)
+    if self.cut_card == -1:
+      object.__setattr__(self, 'cut_card', default_cut_card(num_decks))
     assert self.blackjack_payout >= 1.0
     assert self.double_min_total in (0, 9, 10)
     splitn = self.split_to_num_hands
     assert splitn in (0, math.inf) or (splitn == int(splitn) and splitn >= 2)
-    assert 0 <= self.cut_card <= (0 if ndecks == math.inf else ndecks * DECK_SIZE)
+    assert 0 <= self.cut_card <= (0 if num_decks == math.inf else num_decks * DECK_SIZE)
     assert self.num_players == 1  # More than one player is not yet implemented.
     # Note that with split_to_num_hands == 0, we ignore resplit_aces, hit_split_aces,
     # and double_split_aces.  And with split_to_num_hands == 2, we ignore resplit_aces.
 
-  @classmethod
-  def make(cls: type, num_decks: float = DEFAULT_NUM_DECKS, *,
-           cut_card: int | None = None, **kwargs: Any) -> Rules:
-    """Create rules with default cut_card based on the number of decks."""
-    cut_card = default_cut_card(num_decks) if cut_card is None else cut_card
-    rules: Rules = cls(_create_using_make=True, num_decks=num_decks, cut_card=cut_card,
-                       num_players=1, **kwargs)
-    return rules
-
 
 # %%
-BEST_RULES = Rules.make(num_decks=1, split_to_num_hands=math.inf, resplit_aces=True,
-                        hit_split_aces=True, double_split_aces=True, cut_card=0)
+BEST_RULES = Rules(num_decks=1, split_to_num_hands=math.inf, resplit_aces=True,
+                   hit_split_aces=True, double_split_aces=True, cut_card=0)
 """Combination of rules with the lowest house edge (which is in fact negative)."""
 
-WORST_RULES = Rules.make(num_decks=math.inf, blackjack_payout=1, hit_soft17=False, obo=False,
-                         late_surrender=False, double_min_total=10, double_after_split=False,
-                         split_to_num_hands=2)
+WORST_RULES = Rules(num_decks=math.inf, blackjack_payout=1, hit_soft17=False, obo=False,
+                    late_surrender=False, double_min_total=10, double_after_split=False,
+                    split_to_num_hands=2)
 """Combination of rules with the highest house edge."""
 
 omit_cell_output()
 
-# (Although the ingenious `Rules.make(num_decks=1, ..., cut_card=5)` has a low house edge,
-# its edge is not as low as `Rules.make(num_decks=math.inf)`.)
+# (Although the ingenious `Rules(num_decks=1, ..., cut_card=5)` has a low house edge,
+# its edge is not as low as `Rules(num_decks=math.inf)`.)
 
 # %%
 # We do not distinguish between different cards with value 10, i.e., 10, jack, queen, and king.
@@ -809,25 +798,25 @@ def generate_all_initial_cards() -> Iterator[Cards]:
 
 
 # %%
-check_eq(list(generate_hands_totaling(8, Rules.make(num_decks=1))),
+check_eq(list(generate_hands_totaling(8, Rules(num_decks=1))),
          [(2, 2, 2, 2), (2, 2, 4), (2, 3, 3), (2, 6), (3, 5), (4, 4)])
 
-check_eq(list(generate_hands_totaling(21, Rules.make(num_decks=1)))[:2],
+check_eq(list(generate_hands_totaling(21, Rules(num_decks=1)))[:2],
          [(1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3), (1, 1, 1, 1, 2, 2, 2, 2, 3, 6)])
 
-check_eq(list(generate_hands_totaling(21, Rules.make(num_decks=1)))[-7:],
+check_eq(list(generate_hands_totaling(21, Rules(num_decks=1)))[-7:],
          [(5, 5, 5, 6), (5, 6, 10), (5, 7, 9), (5, 8, 8), (6, 6, 9), (6, 7, 8), (7, 7, 7)])
 
-check_eq(list(generate_hands_totaling(21, Rules.make(num_decks=8)))[:2], [(1,) * 11, (1,) * 21])
+check_eq(list(generate_hands_totaling(21, Rules(num_decks=8)))[:2], [(1,) * 11, (1,) * 21])
 
-check_eq(sum(1 for _ in generate_hands_totaling(21, Rules.make(num_decks=1))), 416)
+check_eq(sum(1 for _ in generate_hands_totaling(21, Rules(num_decks=1))), 416)
 
-check_eq(list(generate_all_hands(Rules.make(num_decks=1)))[:20],
+check_eq(list(generate_all_hands(Rules(num_decks=1)))[:20],
          [(2, 2), (2, 3), (2, 2, 2), (2, 4), (3, 3), (2, 2, 3), (2, 5), (3, 4), (2, 2, 2, 2),
           (2, 2, 4), (2, 3, 3), (2, 6), (3, 5), (4, 4), (2, 2, 2, 3), (2, 2, 5), (2, 3, 4),
           (2, 7), (3, 3, 3), (3, 6)])
 
-check_eq(list(generate_all_hands(Rules.make(num_decks=1)))[-20:],
+check_eq(list(generate_all_hands(Rules(num_decks=1)))[-20:],
          [(3, 5, 5, 8), (3, 5, 6, 7), (3, 6, 6, 6), (3, 8, 10), (3, 9, 9), (4, 4, 4, 4, 5),
           (4, 4, 4, 9), (4, 4, 5, 8), (4, 4, 6, 7), (4, 5, 5, 7), (4, 5, 6, 6), (4, 7, 10),
           (4, 8, 9), (5, 5, 5, 6), (5, 6, 10), (5, 7, 9), (5, 8, 8), (6, 6, 9), (6, 7, 8),
@@ -835,7 +824,7 @@ check_eq(list(generate_all_hands(Rules.make(num_decks=1)))[-20:],
 
 # %%
 # Surprisingly, there are few unique hands in blackjack: 2008 for 1 deck, and 3072 maximum.
-check_eq({num_decks: number_of_unique_hands(Rules.make(num_decks=num_decks))
+check_eq({num_decks: number_of_unique_hands(Rules(num_decks=num_decks))
           for num_decks in [1, 2, 4, 6, 8, math.inf]},
          {1: 2008, 2: 2796, 4: 3060, 6: 3072, 8: 3072, math.inf: 3072})
 
@@ -1079,8 +1068,8 @@ def card_probabilities_helper(recent_cards: RecentCards, num_decks: float,
 # %%
 def test_card_probabilities() -> None:
   """Check `card_probabilities` function."""
-  check_eq(card_probabilities((3, 3, 3), Rules.make(num_decks=1), 3)[3], 1 / (DECK_SIZE - 3))
-  assert 3 not in card_probabilities((3, 3, 3, 3), Rules.make(num_decks=1), 3)
+  check_eq(card_probabilities((3, 3, 3), Rules(num_decks=1), 3)[3], 1 / (DECK_SIZE - 3))
+  assert 3 not in card_probabilities((3, 3, 3, 3), Rules(num_decks=1), 3)
 
 
 # %%
@@ -1100,10 +1089,10 @@ def card_probabilities_for_state(state: State, rules: Rules) -> dict[Card, float
 # %%
 def test_card_probabilities_for_state() -> None:
   """Check `card_probabilities_for_state` function."""
-  check_eq(card_probabilities_for_state(((3, 3), 3, ()), Rules.make(num_decks=1))[3],
+  check_eq(card_probabilities_for_state(((3, 3), 3, ()), Rules(num_decks=1))[3],
            1 / (DECK_SIZE - 3))
-  assert 3 not in card_probabilities_for_state(((3, 3, 3), 3, ()), Rules.make(num_decks=1))
-  assert 3 not in card_probabilities_for_state(((3, 7), 3, (3, 3, 5, 8)), Rules.make(num_decks=1))
+  assert 3 not in card_probabilities_for_state(((3, 3, 3), 3, ()), Rules(num_decks=1))
+  assert 3 not in card_probabilities_for_state(((3, 7), 3, (3, 3, 5, 8)), Rules(num_decks=1))
 
 
 # %%
@@ -1529,7 +1518,7 @@ def get_best_action(state: State, rules: Rules, strategy: Strategy) -> Action:
 if 0:
   with temporary_effort(1):
     hh.print_time(lambda: reward_for_split(
-        ((10, 10), 8, ()), Rules.make(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY), max_repeat=1)
+        ((10, 10), 8, ()), Rules(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY), max_repeat=1)
   # Times are * 100 for all possible splits (card1 and dealer1).
   # For 1 deck:
   # EFFORT=0: 170 µs.
@@ -1546,7 +1535,7 @@ if 0:
 if 0:
   with temporary_effort(1):
     hh.prun(lambda: reward_for_split(
-        ((2, 2), 8, ()), Rules.make(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY), top=80)
+        ((2, 2), 8, ()), Rules(num_decks=1), COMPOSITION_DEPENDENT_STRATEGY), top=80)
 
 
 # %% [markdown]
@@ -1661,7 +1650,7 @@ def basic_strategy_tables(rules: Rules, strategy: Strategy = Strategy()) -> dict
 # %%
 if 0:
   with temporary_effort(2):
-    hh.prun(lambda: basic_strategy_tables(Rules.make(num_decks=1), Strategy()))
+    hh.prun(lambda: basic_strategy_tables(Rules(num_decks=1), Strategy()))
 # Prun: tottime   82.031 overall_cumtime
 #        20.367   33.331 reward_after_dealer_hits (/tmp/ipykernel:1)
 #         8.718   83.194 best_reward_estimate_and_action (/tmp/ipykernel:1)
@@ -1986,7 +1975,7 @@ def probabilistic_house_edge(rules: Rules, strategy: Strategy, quiet: bool = Fal
 # %%
 if 0:
   with temporary_effort(1):
-    hh.print_time(lambda: probabilistic_house_edge(Rules.make(), Strategy(), quiet=True))
+    hh.print_time(lambda: probabilistic_house_edge(Rules(), Strategy(), quiet=True))
 # EFFORT=0: 35 ms
 # EFFORT=1: 35 ms
 # EFFORT=2: 5.4 s
@@ -1995,7 +1984,7 @@ if 0:
 # %%
 if 0:
   with temporary_effort(1):
-    hh.print_time(lambda: probabilistic_house_edge(Rules.make(num_decks=1), Strategy(), quiet=True))
+    hh.print_time(lambda: probabilistic_house_edge(Rules(num_decks=1), Strategy(), quiet=True))
 # EFFORT=0: 35 ms
 # EFFORT=1: 35 ms
 # EFFORT=2: 4.6 s
@@ -2004,7 +1993,7 @@ if 0:
 # %%
 if 0:
   with temporary_effort(2):
-    hh.prun(lambda: probabilistic_house_edge(Rules.make(), Strategy(), quiet=True))
+    hh.prun(lambda: probabilistic_house_edge(Rules(), Strategy(), quiet=True))
 # Prun: tottime   78.607 overall_cumtime
 #        22.567   37.773 reward_after_dealer_hits (/tmp/ipykernel:1)
 #         6.813   79.085 best_reward_estimate_and_action (/tmp/ipykernel:1)
@@ -2135,25 +2124,25 @@ def simulate_hand_shoes_creator(hand: Hand, rules: Rules) -> CreateShoes:
 
 # %%
 if 0:
-  print(default_shoes_creator(Rules.make(num_decks=1))(2, 0))
+  print(default_shoes_creator(Rules(num_decks=1))(2, 0))
 
 # %%
 if 0:
-  print(simulate_hand_shoes_creator(((2, 8), 9), Rules.make(num_decks=1))(10, 0))
+  print(simulate_hand_shoes_creator(((2, 8), 9), Rules(num_decks=1))(10, 0))
 
 # %%
 if 0:
-  print(simulate_hand_shoes_creator(((2, 3, 4), 9), Rules.make(num_decks=1))(10, 0))
+  print(simulate_hand_shoes_creator(((2, 3, 4), 9), Rules(num_decks=1))(10, 0))
 
 # %%
 if 0:
-  hh.print_time(lambda: [default_shoes_creator(Rules.make())(1000, 0) for _ in range(100)])
+  hh.print_time(lambda: [default_shoes_creator(Rules())(1000, 0) for _ in range(100)])
 # 257 ms for default int64; 378 for int32; 388 for int16; 344 for uint8.
 
 # %%
 if 0:
   hh.print_time(lambda: [simulate_hand_shoes_creator(
-      ((2, 3), 4), Rules.make(num_decks=1))(1000, 0) for _ in range(100)])
+      ((2, 3), 4), Rules(num_decks=1))(1000, 0) for _ in range(100)])
 # 38.8 ms for default int64; 59.5 for int32; 61.5 for int16; 55.4 for uint8.
 
 # %% [markdown]
@@ -2249,8 +2238,8 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
 
 
 # %%
-# _ = create_tables(Rules.make(num_decks=1), INITIAL_DEPENDENT_STRATEGY, quiet=False)
-# print(monte_carlo_house_edge(Rules.make(num_decks=1), INITIAL_DEPENDENT_STRATEGY, 200_000_000))
+# _ = create_tables(Rules(num_decks=1), INITIAL_DEPENDENT_STRATEGY, quiet=False)
+# print(monte_carlo_house_edge(Rules(num_decks=1), INITIAL_DEPENDENT_STRATEGY, 200_000_000))
 
 # %%
 def test_create_tables(rules: Rules, strategy: Strategy) -> None:
@@ -2279,19 +2268,19 @@ def test_create_tables(rules: Rules, strategy: Strategy) -> None:
 
 # %%
 if 0:
-  test_create_tables(Rules.make(num_decks=1), Strategy(attention=Attention.TOTAL_OF_CARDS))
-  test_create_tables(Rules.make(num_decks=6), Strategy(attention=Attention.INITIAL_CARDS_AND_TOTAL))
+  test_create_tables(Rules(num_decks=1), Strategy(attention=Attention.TOTAL_OF_CARDS))
+  test_create_tables(Rules(num_decks=6), Strategy(attention=Attention.INITIAL_CARDS_AND_TOTAL))
 
 # %%
 if 0:
   with temporary_effort(1):
-    hh.print_time(lambda: create_tables(Rules.make(num_decks=1), Strategy(), quiet=True))
+    hh.print_time(lambda: create_tables(Rules(num_decks=1), Strategy(), quiet=True))
 # EFFORT=2: 4.7 s
 
 # %%
 if 0:
   with temporary_effort(1):
-    hh.prun(lambda: create_tables(Rules.make(num_decks=1), Strategy(), quiet=True))
+    hh.prun(lambda: create_tables(Rules(num_decks=1), Strategy(), quiet=True))
 # Prun: tottime    9.190 overall_cumtime
 #         3.361    5.484 reward_after_dealer_hits (/tmp/ipykernel:1)
 #         1.068    1.068 add_card (/tmp/ipykernel:1)
@@ -2308,7 +2297,7 @@ if 0:
 
 # %%
 if 0:
-  _ = create_tables(Rules.make(), Strategy(), quiet=False)
+  _ = create_tables(Rules(), Strategy(), quiet=False)
 
 
 # %%
@@ -2565,7 +2554,7 @@ def test_simulate_single_shoe() -> None:
   #    7  6 10  6 10  8  1  9 10  8  7  4  3  6  2  8  6 10  5  8 10  1  2 10
   #    2  1  4  4]]
   # rewards=[1.0, 0.0, 1.5, -1.0]; sum=1.5; sum_squared=4.25
-  check_eq(simulate_shoes(0, shoes, Rules.make(num_decks=1, cut_card=0), Strategy(),
+  check_eq(simulate_shoes(0, shoes, Rules(num_decks=1, cut_card=0), Strategy(),
                           min_num_player_cards, hands_per_shoe),
            (4, 1.5, 4.25))
 
@@ -2725,7 +2714,7 @@ def test_monte_carlo_house_edge_cpu() -> None:
   """Test monte_carlo_house_edge_cpu."""
   num_hands = 10**7
   house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cpu(
-      Rules.make(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True)
+      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True)
   # print(house_edge, played_hands, reward_sdv)
   assert 0.9 < played_hands / num_hands < 1.1
   assert 0.0016 < house_edge < 0.0018 and 1.1 < reward_sdv < 1.2
@@ -2757,7 +2746,7 @@ def test_monte_carlo_hand_cpu() -> None:
   """Test monte_carlo_hand_cpu."""
   hand = (3, 10), 5
   reward_average, reward_sdv = monte_carlo_hand_cpu(
-      hand, Rules.make(num_decks=1), Strategy(), 10_000_000, quiet=True
+      hand, Rules(num_decks=1), Strategy(), 10_000_000, quiet=True
   )
   # print(reward_average, reward_sdv)
   assert -0.14 < reward_average < -0.13 and 0.98 < reward_sdv < 1.00
@@ -2770,7 +2759,7 @@ test_monte_carlo_hand_cpu()
 if 0:
   # Jitted with EFFORT=3.
   hh.prun(lambda: monte_carlo_house_edge_cpu(
-      Rules.make(num_decks=1), Strategy(), 10_000_000, quiet=True, parallel=False))
+      Rules(num_decks=1), Strategy(), 10_000_000, quiet=True, parallel=False))
 # Prun: tottime    1.096 overall_cumtime
 #         0.684    0.687 numpy.random._generator.Generator.permuted
 #         0.334    0.334 simulate_shoes_helper (/tmp/ipykernel:1)
@@ -2780,7 +2769,7 @@ if 0:
 # %%
 if 0:
   hh.print_time(lambda: monte_carlo_house_edge_cpu(
-      Rules.make(), Strategy(), 10**9, quiet=True), max_time=25.0)
+      Rules(), Strategy(), 10**9, quiet=True), max_time=25.0)
 # For EFFORT=2 (run twice to cache probabilistic values) (inline='always'): ~7.0 s.
 
 
@@ -2805,7 +2794,7 @@ def experiment_fastest_shoes_per_seed() -> None:
   for num_decks in [6, 4, 2, 1]:
     for num_hands in [10_000_000, 100_000_000]:
       for shoes_per_seed in [5, 100, 200, 500, 1_000, 2_000]:
-        rules = Rules.make(num_decks=num_decks)
+        rules = Rules(num_decks=num_decks)
         experiment_shoes_per_seed(rules, num_hands, shoes_per_seed)
       print()
 
@@ -3075,7 +3064,7 @@ def create_and_simulate_shoes_cuda(
 
 # %%
 # To determine the optimal threads_per_block:
-# # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules.make(num_decks=1), Strategy(), 10**8)  # ~200 ms.
+# # %timeit -n1 -r4 monte_carlo_house_edge_cuda(Rules(num_decks=1), Strategy(), 10**8)  # ~200 ms.
 
 # %%
 def run_simulations_cuda(
@@ -3145,7 +3134,7 @@ def test_run_simulations_cuda() -> None:
   num_hands = 10**9
   hand_cards = ()
   reward_average, played_hands, reward_sdv = run_simulations_cuda(
-      Rules.make(num_decks=1, late_surrender=False), Strategy(), num_hands, hand_cards, False)
+      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, hand_cards, False)
   house_edge = -reward_average
   assert 0.8 < played_hands / num_hands < 1.2, played_hands
   expected_house_edge = 0.00170  # 0.170%.
@@ -3185,7 +3174,7 @@ def test_monte_carlo_house_edge_cuda() -> None:
   """Test monte_carlo_house_edge_cuda."""
   num_hands = 10**8
   house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cuda(
-      Rules.make(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True)
+      Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True)
   # print(house_edge, played_hands, reward_sdv)
   assert 0.9 < played_hands / num_hands < 1.1
   assert 0.0016 < house_edge < 0.0018 and 1.1 < reward_sdv < 1.2
@@ -3217,7 +3206,7 @@ def test_monte_carlo_hand_cuda() -> None:
   """Test monte_carlo_hand_cuda."""
   hand = (3, 10), 5
   reward_average, reward_sdv = monte_carlo_hand_cuda(
-      hand, Rules.make(num_decks=1), Strategy(), 100_000_000, quiet=True
+      hand, Rules(num_decks=1), Strategy(), 100_000_000, quiet=True
   )
   # print(reward_average, reward_sdv)
   assert -0.14 < reward_average < -0.13 and 0.98 < reward_sdv < 1.00
@@ -3232,7 +3221,7 @@ if cuda.is_available():
 # %%
 def monte_carlo_house_edge_cuda_timing(num_decks: float) -> None:
   """Show timing for house edge computation."""
-  monte_carlo_house_edge_cuda(Rules.make(num_decks=num_decks), Strategy(), 5 * 10**8, quiet=True)
+  monte_carlo_house_edge_cuda(Rules(num_decks=num_decks), Strategy(), 5 * 10**8, quiet=True)
 
 
 # %%
@@ -3251,7 +3240,7 @@ if 0:
 # %%
 def verify_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> None:
   """Verify that house edge results match the CPU implementation."""
-  rules = Rules.make(num_decks=num_decks, late_surrender=False)
+  rules = Rules(num_decks=num_decks, late_surrender=False)
   num_hands = get_num_hands()
   # Both (1) ensure jit and (2) cache the action_table.
   _ = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands // 20, quiet=True)
@@ -3288,7 +3277,7 @@ if cuda.is_available():
 # house_edge = 0.5951%  played_hands =   9,972,388,247  hands_per_s = 1,650,981,161
 # house_edge = 0.7311%  played_hands =  10,000,008,000  hands_per_s = 2,454,392,267
 #
-# analyze_number_of_decks(Rules.make(late_surrender=False))
+# analyze_number_of_decks(Rules(late_surrender=False))
 # Rules(late_surrender=False) EFFORT=3
 # ndecks=1   prob~ 0.044% (10s)  sim: 0.168% ±0.002%(81s)   wiz: 0.159%* wiki: 0.170%
 # ndecks=2   prob~ 0.392% (37s)  sim: 0.459% ±0.002%(63s)   wiz: 0.457%  wiki: 0.460%
@@ -3298,7 +3287,7 @@ if cuda.is_available():
 # %%
 def test_simulation_timings() -> None:
   """Compare simulation rates for different approaches."""
-  args = Rules.make(num_decks=2), Strategy()
+  args = Rules(num_decks=2), Strategy()
   num_hands = 50_000_000
   f1: Any = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=False, quiet=True)
   f1()  # Memoize tables.
@@ -3477,7 +3466,7 @@ def run_simulations_all_cut_cards_cpu(
 def test_all_cut_cards(func: Callable[..., CutCardAnalysisResult], frac: float) -> None:
   """Test the cut-card simulation function `func`."""
   num_shoes = int(get_num_hands() * frac)
-  result = func(Rules.make(num_decks=1), Strategy(), num_shoes, quiet=True)
+  result = func(Rules(num_decks=1), Strategy(), num_shoes, quiet=True)
   assert 0.95 < result.num_shoes / num_shoes < 1.05
   v1 = result.house_edge_from_cut_card[1]
   v5 = result.house_edge_from_cut_card[5]
@@ -3493,7 +3482,7 @@ test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.001)  # jitting ~5 s.
 if 0:
   # Jitted with EFFORT=3.
   hh.prun(lambda: run_simulations_all_cut_cards_cpu(
-      Rules.make(num_decks=1), Strategy(), 2_000_000, quiet=True, parallel=False))
+      Rules(num_decks=1), Strategy(), 2_000_000, quiet=True, parallel=False))
 # Prun: tottime    1.380 overall_cumtime
 #         0.686    0.689 numpy.random._generator.Generator.permuted
 #         0.637    0.637 simulate_shoes_all_cut_cards (/tmp/ipykernel:1)
@@ -3676,7 +3665,7 @@ class HandCalculator:
 
   def is_available(self) -> bool:
     """Return True if the hand calculator is available."""
-    return self(((9, 9), 1), Action.STAND, Rules.make(num_decks=1)) is not None
+    return self(((9, 9), 1), Action.STAND, Rules(num_decks=1)) is not None
 
   def is_downloaded(self, rules: Rules) -> bool:
     """Return True if all the hand rewards for `rules` are downloaded locally."""
@@ -3770,8 +3759,8 @@ class WizardHandCalculator(HandCalculator):
 
   def test(self) -> None:
     """Run self-tests."""
-    check_eq(self(((9, 9), 1), Action.STAND, Rules.make(num_decks=1)), -0.18613048871481852)
-    # check_eq(self(((9, 9), 1), Action.STAND, Rules.make(num_decks=2)), -0.20661260118138675)
+    check_eq(self(((9, 9), 1), Action.STAND, Rules(num_decks=1)), -0.18613048871481852)
+    # check_eq(self(((9, 9), 1), Action.STAND, Rules(num_decks=2)), -0.20661260118138675)
 
 
 # %%
@@ -3848,8 +3837,8 @@ class BjstratHandCalculator(HandCalculator):
 
   def test(self) -> None:
     """Run self-tests."""
-    check_eq(self(((9, 9), 1), Action.STAND, Rules.make(num_decks=1)), -0.1861)
-    # check_eq(self(((9, 9), 1), Action.STAND, Rules.make(num_decks=2)), -0.2066)
+    check_eq(self(((9, 9), 1), Action.STAND, Rules(num_decks=1)), -0.1861)
+    # check_eq(self(((9, 9), 1), Action.STAND, Rules(num_decks=2)), -0.2066)
 
 # %%
 HAND_CALCULATORS = {
@@ -3861,7 +3850,7 @@ print(list(HAND_CALCULATORS))
 
 # %%
 if 0:
-  check_eq(HAND_CALCULATORS['bjstrat'].read_downloaded(Rules.make(num_decks=1))[
+  check_eq(HAND_CALCULATORS['bjstrat'].read_downloaded(Rules(num_decks=1))[
       ((9, 9), 1), Action.STAND], -0.1861)
 
 # %%
@@ -3871,7 +3860,7 @@ for _hand_calc in HAND_CALCULATORS.values():
 # %%
 if 0:
   if 'wiz' in HAND_CALCULATORS and 'bjstrat' in HAND_CALCULATORS:
-    check_eq({name: hand_calc(((2, 3, 5), 7), Action.HIT, Rules.make(num_decks=1))
+    check_eq({name: hand_calc(((2, 3, 5), 7), Action.HIT, Rules(num_decks=1))
               for name, hand_calc in HAND_CALCULATORS.items()},
              {'wiz': 0.29369908629477176, 'bjstrat': 0.2937})
 
@@ -3880,26 +3869,26 @@ if 0:
 def download_hand_calc_results() -> None:
   """Cache online calculator results to files to reduce requests."""
   calcs = HAND_CALCULATORS
-  # calcs['wiz'].download(Rules.make(num_decks=1))
-  # calcs['wiz'].download(Rules.make(num_decks=1, hit_soft17=False))
-  # calcs['wiz'].download(Rules.make(num_decks=2))
-  # calcs['wiz'].download(Rules.make(num_decks=1, obo=False, late_surrender=False))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, hit_soft17=False))
-  # calcs['bjstrat'].download(Rules.make(num_decks=2))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, obo=False, late_surrender=False))
+  # calcs['wiz'].download(Rules(num_decks=1))
+  # calcs['wiz'].download(Rules(num_decks=1, hit_soft17=False))
+  # calcs['wiz'].download(Rules(num_decks=2))
+  # calcs['wiz'].download(Rules(num_decks=1, obo=False, late_surrender=False))
+  # calcs['bjstrat'].download(Rules(num_decks=1))
+  # calcs['bjstrat'].download(Rules(num_decks=1, hit_soft17=False))
+  # calcs['bjstrat'].download(Rules(num_decks=2))
+  # calcs['bjstrat'].download(Rules(num_decks=1, obo=False, late_surrender=False))
   # For BjstratHouseEdgeCalculator:
-  # calcs['bjstrat'].download(Rules.make(late_surrender=False))
-  # calcs['bjstrat'].download(Rules.make(num_decks=6))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, double_after_split=False))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, double_min_total=10))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, split_to_num_hands=2))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, resplit_aces=True))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, hit_split_aces=True))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, late_surrender=False))
-  # calcs['bjstrat'].download(Rules.make(num_decks=1, blackjack_payout=1.2))
-  # calcs['bjstrat'].download(Rules.make(num_decks=8))
-  # calcs['bjstrat'].download(Rules.make(num_decks=8, hit_split_aces=True))
+  # calcs['bjstrat'].download(Rules(late_surrender=False))
+  # calcs['bjstrat'].download(Rules(num_decks=6))
+  # calcs['bjstrat'].download(Rules(num_decks=1, double_after_split=False))
+  # calcs['bjstrat'].download(Rules(num_decks=1, double_min_total=10))
+  # calcs['bjstrat'].download(Rules(num_decks=1, split_to_num_hands=2))
+  # calcs['bjstrat'].download(Rules(num_decks=1, resplit_aces=True))
+  # calcs['bjstrat'].download(Rules(num_decks=1, hit_split_aces=True))
+  # calcs['bjstrat'].download(Rules(num_decks=1, late_surrender=False))
+  # calcs['bjstrat'].download(Rules(num_decks=1, blackjack_payout=1.2))
+  # calcs['bjstrat'].download(Rules(num_decks=8))
+  # calcs['bjstrat'].download(Rules(num_decks=8, hit_split_aces=True))
   del calcs
 
 
@@ -3908,7 +3897,7 @@ if 0:
 
 # %%
 if 0:
-  check_eq(HAND_CALCULATORS['bjstrat'](((1, 10), 1), Action.STAND, Rules.make(num_decks=8)), 1.5)
+  check_eq(HAND_CALCULATORS['bjstrat'](((1, 10), 1), Action.STAND, Rules(num_decks=8)), 1.5)
 
 
 # %% [markdown]
@@ -3929,7 +3918,7 @@ class ProbHandCalculator(HandCalculator):
 
   def test(self) -> None:
     """Run self-tests."""
-    value = self(((9, 9), 1), Action.STAND, Rules.make(num_decks=1))
+    value = self(((9, 9), 1), Action.STAND, Rules(num_decks=1))
     assert value is not None and -0.1866 < value < -0.1854, value
 
 
@@ -4076,8 +4065,8 @@ if 0:
   # because it tends to be almost identical to `id_reward`.  Also, it is confusing that the
   # action recommended by basic strategy is not the action with highest `bs_reward` because
   # `bs_reward` measures the reward using the particular card composition of the hand.
-  analyze_hand(((5, 10), 10), Rules.make(num_decks=1))
-  analyze_hand(((7, 9), 1), Rules.make(num_decks=1, hit_soft17=False))
+  analyze_hand(((5, 10), 10), Rules(num_decks=1))
+  analyze_hand(((7, 9), 1), Rules(num_decks=1, hit_soft17=False))
 
 # hand=((5, 10), 10)  EFFORT=3
 # Best_actions: bs=HIT id=SURRENDER cd=SURRENDER wiz=SURRENDER bjstrat=SURRENDER
@@ -4120,7 +4109,7 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
             ((hh.assert_not_none(hand_calc(hand, action, rules)), action) for action in Action),
             key=lambda t: (t[0], t[1].value), reverse=True)
         best_action = reward_actions[0][1]
-        # (Bjstrat has a reward tie for ((2, 6), 5) on Rules.make(num_decks=1, hit_soft17=False).)
+        # (Bjstrat has a reward tie for ((2, 6), 5) on Rules(num_decks=1, hit_soft17=False).)
         if not (best_action is cd_best_action or
                 (len(reward_actions) > 1 and reward_actions[1][0] == reward_actions[0][0] and
                  reward_actions[1][1] is cd_best_action)):
@@ -4145,7 +4134,7 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # %%
 if 0:
-  look_for_hands_with_differences_in_calculated_optimal_actions(Rules.make(num_decks=1))
+  look_for_hands_with_differences_in_calculated_optimal_actions(Rules(num_decks=1))
 
 
 # %% [markdown]
@@ -4285,29 +4274,29 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
 
   def is_available(self) -> bool:
     """Return True if the house edge calculator is available."""
-    return self(Rules.make(late_surrender=False), Strategy()) is not None
+    return self(Rules(late_surrender=False), Strategy()) is not None
 
   def test(self) -> None:
     """Run self-tests."""
     cd_strategy = COMPOSITION_DEPENDENT_STRATEGY
-    assert self(Rules.make(), Strategy()) is not None
-    assert self(Rules.make(num_decks=6), Strategy()) is not None
-    assert self(Rules.make(num_decks=6, cut_card=0), Strategy()) is not None
-    assert self(Rules.make(num_decks=6, cut_card=0), cd_strategy) is not None
-    assert self(Rules.make(num_decks=6), cd_strategy) is None
-    assert self(Rules.make(num_decks=7), Strategy()) is None
-    assert self(Rules.make(split_to_num_hands=math.inf), Strategy()) is None
-    assert self(Rules.make(blackjack_payout=1), Strategy()) is None
+    assert self(Rules(), Strategy()) is not None
+    assert self(Rules(num_decks=6), Strategy()) is not None
+    assert self(Rules(num_decks=6, cut_card=0), Strategy()) is not None
+    assert self(Rules(num_decks=6, cut_card=0), cd_strategy) is not None
+    assert self(Rules(num_decks=6), cd_strategy) is None
+    assert self(Rules(num_decks=7), Strategy()) is None
+    assert self(Rules(split_to_num_hands=math.inf), Strategy()) is None
+    assert self(Rules(blackjack_payout=1), Strategy()) is None
 
     # Validate that the expected rules are extrema in the table.
     table_axes = [axis for axis in self.axes if axis[0] != 'blackjack_payout']
-    rules_max = Rules.make(**{name: h for name, (h, l) in table_axes}, cut_card=0)
-    rules_min = Rules.make(**{name: l for name, (h, l) in table_axes}, cut_card=0)
+    rules_max = Rules(**{name: h for name, (h, l) in table_axes}, cut_card=0)
+    rules_min = Rules(**{name: l for name, (h, l) in table_axes}, cut_card=0)
     check_eq(hh.assert_not_none(self(rules_max, cd_strategy)) * 100, self.table.max())
     check_eq(hh.assert_not_none(self(rules_min, cd_strategy)) * 100, self.table.min())
 
     # Check a few data points.
-    rules = Rules.make(num_decks=6, hit_soft17=False, resplit_aces=True)
+    rules = Rules(num_decks=6, hit_soft17=False, resplit_aces=True)
     rules_with_shuffler = dataclasses.replace(rules, cut_card=0)
     check_eq(self(rules_with_shuffler, cd_strategy), 0.26197 / 100)
     check_eq(self(rules, Strategy()), 0.28507 / 100)
@@ -4417,11 +4406,11 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
 
   def is_available(self) -> bool:
     """Return True if the house edge calculator is available."""
-    return self(Rules.make(cut_card=0), Strategy()) is not None
+    return self(Rules(cut_card=0), Strategy()) is not None
 
   def test(self) -> None:
     """Run self-tests."""
-    check_eq(self(Rules.make(cut_card=0), Strategy()), 0.529 / 100)
+    check_eq(self(Rules(cut_card=0), Strategy()), 0.529 / 100)
 
 
 # %%
@@ -4433,7 +4422,7 @@ class WikipediaHouseEdgeCalculator(HouseEdgeCalculator):
 
   def __call__(self, rules: Rules, strategy: Strategy) -> float | None:
     """Return the house edge, or None if unknown."""
-    known_rules = [Rules.make(num_decks=num_decks, late_surrender=False)
+    known_rules = [Rules(num_decks=num_decks, late_surrender=False)
                    for num_decks in (1, 2, 4, 6, 8)]
     if rules not in known_rules or strategy != Strategy():
       return None
@@ -4442,7 +4431,7 @@ class WikipediaHouseEdgeCalculator(HouseEdgeCalculator):
 
   def test(self) -> None:
     """Run self-tests."""
-    check_eq(self(Rules.make(late_surrender=False), Strategy()), 0.64 / 100)
+    check_eq(self(Rules(late_surrender=False), Strategy()), 0.64 / 100)
 
 
 # %%
@@ -4556,8 +4545,8 @@ def explore_rule_variations(rules: Rules, strategy: Strategy = Strategy()) -> No
 # %%
 if 0:  # Quick check on accuracy of probabilistic analysis and simulation.
   with temporary_effort(1):
-    report_edge(Rules.make())
-    # report_edge(Rules.make(num_decks=math.inf))
+    report_edge(Rules())
+    # report_edge(Rules(num_decks=math.inf))
 
 # Rules() Strategy() EFFORT=1:
 #  house edge: prob: 0.545% (0s)   sim: 0.538% ±0.072%(0s)    wiz: 0.551%
@@ -4568,7 +4557,7 @@ if 0:  # Quick check on accuracy of probabilistic analysis and simulation.
 
 # %%
 if 0:
-  check_eq(EDGE_CALCULATORS['bjstrat'](Rules.make(num_decks=8, cut_card=0),
+  check_eq(EDGE_CALCULATORS['bjstrat'](Rules(num_decks=8, cut_card=0),
                                        COMPOSITION_DEPENDENT_STRATEGY) * 100,
            0.5530080610784475)
 
@@ -4611,8 +4600,8 @@ if 0:
 # Here we use the default of 6 decks:
 
 # %%
-show_basic_strategy_tables(Rules.make())
-verify_action_tables(Rules.make(), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17)
+show_basic_strategy_tables(Rules())
+verify_action_tables(Rules(), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17)
 
 # %% [markdown]
 # The optimal actions exactly match those in the *basic strategy* tables shown in
@@ -4628,9 +4617,8 @@ verify_action_tables(Rules.make(), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECK
 # the player), still with the default of 6 decks.
 
 # %%
-show_basic_strategy_tables(Rules.make(hit_soft17=False))
-verify_action_tables(Rules.make(hit_soft17=False),
-                     expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17)
+show_basic_strategy_tables(Rules(hit_soft17=False))
+verify_action_tables(Rules(hit_soft17=False), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17)
 
 
 # %% [markdown]
@@ -4658,8 +4646,8 @@ def table_difference_locations(tables1: Mapping[str, _NDArray],
 
 
 # %%
-check_eq(table_difference_locations(basic_strategy_tables(Rules.make()),
-                                    basic_strategy_tables(Rules.make(hit_soft17=False))),
+check_eq(table_difference_locations(basic_strategy_tables(Rules()),
+                                    basic_strategy_tables(Rules(hit_soft17=False))),
          {'hard': [[6, 9], [10, 9], [12, 9]], 'soft': [[5, 0], [6, 4]], 'pair': [[6, 9]]})
 
 # %% [markdown]
@@ -4668,8 +4656,8 @@ check_eq(table_difference_locations(basic_strategy_tables(Rules.make()),
 
 # %%
 if EFFORT >= 2:
-  verify_action_tables(Rules.make(num_decks=4), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17)
-  verify_action_tables(Rules.make(num_decks=8), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17)
+  verify_action_tables(Rules(num_decks=4), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17)
+  verify_action_tables(Rules(num_decks=8), expected=EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17)
 
 # %% [markdown]
 # - Interestingly, when moving to an infinite shoe, a single cell changes:
@@ -4678,13 +4666,13 @@ if EFFORT >= 2:
 
 # %%
 if 0:
-  show_basic_strategy_tables(Rules.make(num_decks=math.inf))
+  show_basic_strategy_tables(Rules(num_decks=math.inf))
 
 
 def verify_strategy_table_for_infinite_decks() -> None:
   """Check that the infinite-deck action table has a single differing entry."""
-  tables_6 = basic_strategy_tables(Rules.make(num_decks=6))
-  tables_inf = basic_strategy_tables(Rules.make(num_decks=math.inf))
+  tables_6 = basic_strategy_tables(Rules(num_decks=6))
+  tables_inf = basic_strategy_tables(Rules(num_decks=math.inf))
   check_eq(table_difference_locations(tables_6, tables_inf),
            {'hard': [], 'soft': [[0, 3]], 'pair': []})
   check_eq(tables_6['soft'][0, 3], 'Dh')
@@ -4703,8 +4691,8 @@ verify_strategy_table_for_infinite_decks()
 
 # %%
 if EFFORT >= 2:
-  show_basic_strategy_tables(Rules.make(num_decks=1))
-  verify_action_tables(Rules.make(num_decks=1), expected=EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17)
+  show_basic_strategy_tables(Rules(num_decks=1))
+  verify_action_tables(Rules(num_decks=1), expected=EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17)
 
 # %% [markdown]
 # The results are identical to those reported in
@@ -4723,7 +4711,7 @@ if EFFORT >= 2:
 # Let us take a closer look at this particular hand:
 
 # %%
-analyze_hand(((9, 9), 1), Rules.make(num_decks=1))
+analyze_hand(((9, 9), 1), Rules(num_decks=1))
 
 # hand=((9, 9), 1)  EFFORT=3
 # Best_actions: bs=SPLIT id=SPLIT cd=SPLIT wiz=STAND bjstrat=SPLIT
@@ -4746,15 +4734,15 @@ analyze_hand(((9, 9), 1), Rules.make(num_decks=1))
 # %%
 if 0:
   with temporary_effort(3):
-    analyze_hand(((9, 9), 1), Rules.make(num_decks=1), actions=[Action.SPLIT])
+    analyze_hand(((9, 9), 1), Rules(num_decks=1), actions=[Action.SPLIT])
 # hand=((9, 9), 1)  EFFORT=4
 #  SPLIT   id=-0.183940 sim=-0.183914±0.000039   cd=-0.183940  wiz:-0.189759* bjstrat:-0.183900
 
 # %%
 # Verify the 18 table cell differences with respect to the 6-deck strategy.
 if EFFORT >= 2:
-  check_eq(table_difference_locations(basic_strategy_tables(Rules.make(num_decks=6)),
-                                      basic_strategy_tables(Rules.make(num_decks=1))),
+  check_eq(table_difference_locations(basic_strategy_tables(Rules(num_decks=6)),
+                                      basic_strategy_tables(Rules(num_decks=1))),
            {'hard': [[3, 3], [3, 4], [4, 0], [10, 8], [11, 7]],
             'soft': [[0, 2], [1, 2], [4, 0], [5, 0]],
             'pair': [[1, 6], [2, 2], [4, 1], [4, 5], [5, 6], [5, 8], [5, 9], [6, 9], [7, 9]]})
@@ -4764,8 +4752,8 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  show_basic_strategy_tables(Rules.make(num_decks=1, hit_soft17=False))
-  verify_action_tables(Rules.make(num_decks=1, hit_soft17=False),
+  show_basic_strategy_tables(Rules(num_decks=1, hit_soft17=False))
+  verify_action_tables(Rules(num_decks=1, hit_soft17=False),
                        expected=EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17)
 
 # %% [markdown]
@@ -4787,7 +4775,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((6, 10), 10), Rules.make(num_decks=1, hit_soft17=False))
+  analyze_hand(((6, 10), 10), Rules(num_decks=1, hit_soft17=False))
 # As a fallback action (if SURRENDER is unavailable),  BeatingBonuses suggests STAND, which seems
 # incorrect because HIT has a much higher reward than STAND according to all calculators.
 
@@ -4799,7 +4787,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((7, 7), 10), Rules.make(num_decks=1, hit_soft17=False))
+  analyze_hand(((7, 7), 10), Rules(num_decks=1, hit_soft17=False))
 # As a fallback action (if SURRENDER is unavailable),  mBitCasino suggests HIT, which seems
 # incorrect because STAND has a higher reward than HIT according to all calculators.
 
@@ -4837,7 +4825,7 @@ if EFFORT >= 1:
 # %%
 def show_and_check_obo_false() -> None:
   """Show strategy when player loses added bets (SPLIT/DOUBLE) to dealer bj."""
-  rules = Rules.make(num_decks=6, obo=False)
+  rules = Rules(num_decks=6, obo=False)
   show_basic_strategy_tables(rules)
   for name, table in basic_strategy_tables(rules).items():
     code = np.array2string(table[:, -2:]).lower()
@@ -4898,7 +4886,7 @@ def analyze_differences_using_composition_dependent_strategy(
         print(f'{differences} != {expected}', file=sys.stderr)
 
 
-analyze_differences_using_composition_dependent_strategy(Rules.make())
+analyze_differences_using_composition_dependent_strategy(Rules())
 # For num_decks=6:
 #   card1  card2  dealer_up  basic_strategy  composition_dependent
 #     7      8       10        SURRENDER            HIT
@@ -4934,7 +4922,7 @@ analyze_differences_using_composition_dependent_strategy(Rules.make())
 
 # %%
 if EFFORT >= 2:
-  analyze_hand(((7, 8), 10), Rules.make(num_decks=6))
+  analyze_hand(((7, 8), 10), Rules(num_decks=6))
 # For this hand, the basic strategy (total-dependent) optimal action is SURRENDER, whereas the
 # initial-dependent and composition-dependent strategies show the optimal action to be HIT.
 
@@ -4946,7 +4934,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  analyze_hand(((2, 10), 4), Rules.make(num_decks=2))
+  analyze_hand(((2, 10), 4), Rules(num_decks=2))
 # For this hand, the basic strategy (total-dependent) optimal action is STAND, whereas the
 # initial-dependent and composition-dependent strategies show the optimal action to be HIT.
 
@@ -4958,7 +4946,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  analyze_hand(((2, 6), 6), Rules.make(num_decks=1))
+  analyze_hand(((2, 6), 6), Rules(num_decks=1))
 # For this hand, the basic strategy (total-dependent) optimal action is DOUBLE, whereas the
 # initial-dependent and composition-dependent strategies show the optimal action to be HIT.
 
@@ -4970,7 +4958,7 @@ if EFFORT >= 2:
 
 # %%
 # Quick sanity check on Monte Carlo simulation.
-_value, _value_sdv = monte_carlo_hand(((2, 6), 6), Rules.make(num_decks=1), Strategy(), 10_000_000)
+_value, _value_sdv = monte_carlo_hand(((2, 6), 6), Rules(num_decks=1), Strategy(), 10_000_000)
 print(_value, _value_sdv)  # 0.11065 1.9423796114003709  EFFORT=0,1,2,3
 assert 0.10 < _value < 0.12
 assert 1.94 < _value_sdv < 1.95
@@ -5010,7 +4998,7 @@ def find_significant_reward_differences_across_hand_calculators(rules: Rules) ->
 # %%
 if EFFORT >= 3:
   with temporary_effort(3):  # ~300 s  (EFFORT=3 ~42 s)
-    find_significant_reward_differences_across_hand_calculators(Rules.make(num_decks=1))
+    find_significant_reward_differences_across_hand_calculators(Rules(num_decks=1))
 
 # Great: for all actions except SPLIT, we exactly reproduce the rewards of Wizard
 # with 6 digits of precision,
@@ -5025,7 +5013,7 @@ if EFFORT >= 3:
 
 # The Wizard SPLIT results are significantly different and moreover they differ from our
 # Monte Carlo simulation results.  (See for example `test_some_split_hands1()` and
-# `analyze_hand(((9, 9), 1), Rules.make(num_decks=1))` later in this section.)
+# `analyze_hand(((9, 9), 1), Rules(num_decks=1))` later in this section.)
 
 # For ((3, 3), 1)    SPLIT    : cd=-0.536496 bjstrat=-0.536800  diff=-0.000304
 # For ((4, 4), 1)    SPLIT    : cd=-0.608214     wiz=-0.604158  diff= 0.004056
@@ -5055,7 +5043,7 @@ if EFFORT >= 3:
 if 0:
   with temporary_effort(3):  # ~300 s
     find_significant_reward_differences_across_hand_calculators(
-        Rules.make(num_decks=1, obo=False, late_surrender=False))
+        Rules(num_decks=1, obo=False, late_surrender=False))
 # [The results are very similar to the set of differences above.]
 # Found num_differences=18
 
@@ -5063,7 +5051,7 @@ if 0:
 if 0:
   with temporary_effort(3):  # ~300 s
     find_significant_reward_differences_across_hand_calculators(
-        Rules.make(num_decks=1, hit_soft17=False))
+        Rules(num_decks=1, hit_soft17=False))
 # [The results are again very similar to the set of differences above.]
 # Found num_differences=19
 
@@ -5089,10 +5077,10 @@ def analyze_hand_action_wrt_attention(hand: Hand, action: Action, rules: Rules) 
 
 
 if EFFORT >= 3:
-  analyze_hand_action_wrt_attention(((10, 10), 4), Action.SPLIT, Rules.make(num_decks=1))
+  analyze_hand_action_wrt_attention(((10, 10), 4), Action.SPLIT, Rules(num_decks=1))
   with temporary_effort(3):
     print()
-    analyze_hand_action_wrt_attention(((10, 10), 4), Action.SPLIT, Rules.make(num_decks=1))
+    analyze_hand_action_wrt_attention(((10, 10), 4), Action.SPLIT, Rules(num_decks=1))
 
 # Observations:
 # (1) The computed rewards can depend significantly on pruning heuristics (e.g., EFFORT).
@@ -5124,7 +5112,7 @@ if EFFORT >= 3:
 
 # %%
 def demonstrate_importance_of_knowing_prior_split_cards(
-    hand: Hand, rules: Rules = Rules.make(num_decks=1),
+    hand: Hand, rules: Rules = Rules(num_decks=1),
     strategy: Strategy = Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS),
     action: Action = Action.HIT) -> None:
   """Show that the hand reward depends greatly on knowledge of cards from prior splits."""
@@ -5160,7 +5148,7 @@ demonstrate_importance_of_knowing_prior_split_cards(((3, 10), 2))
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
-    Rules.make(num_decks=2), expected_differences=([] if EFFORT >= 2 else None))
+    Rules(num_decks=2), expected_differences=([] if EFFORT >= 2 else None))
 
 # Wonderful: for a 2-deck shoe, with EFFORT>=2, there are no differences in optimal
 # full-composition-strategy actions wrt to Wizard and Bjstrat.
@@ -5168,7 +5156,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
-    Rules.make(num_decks=1), expected_differences=([((9, 9), 1)] if EFFORT >= 2 else None))
+    Rules(num_decks=1), expected_differences=([((9, 9), 1)] if EFFORT >= 2 else None))
 
 # Wonderful: for a 1-deck shoe, with EFFORT>=2, the only difference in optimal
 # full-composition-strategy actions wrt to Wizard and Bjstrat is a single hand:
@@ -5188,7 +5176,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # %%
 # Here is a closer look at that particular hand:
-analyze_hand(((9, 9), 1), Rules.make(num_decks=1))
+analyze_hand(((9, 9), 1), Rules(num_decks=1))
 
 # Our results accurately match Bjstrat.
 
@@ -5202,7 +5190,7 @@ analyze_hand(((9, 9), 1), Rules.make(num_decks=1))
 # %%
 if 0:
   with temporary_effort(3):  # ~1700 s.
-    analyze_hand(((9, 9), 1), Rules.make(num_decks=1))
+    analyze_hand(((9, 9), 1), Rules(num_decks=1))
 # hand=((9, 9), 1)  EFFORT=4
 # Best_actions: bs=SPLIT id=SPLIT cd=SPLIT wiz=STAND bjstrat=SPLIT
 #  STAND   id=-0.186130 sim=-0.186118±0.000024   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
@@ -5212,7 +5200,7 @@ if 0:
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
-    Rules.make(num_decks=1, hit_soft17=False), expected_differences=([] if EFFORT >= 2 else None))
+    Rules(num_decks=1, hit_soft17=False), expected_differences=([] if EFFORT >= 2 else None))
 
 # This time, we consider the case of 1 deck with "dealer stand on soft 17".
 # Wonderful: with EFFORT>=2, there are *no* differences in optimal composition-dependent actions
@@ -5226,7 +5214,7 @@ def test_some_split_hands1(actions: Iterable[Action] = ()) -> None:
   """Compare split rewards on (10, 10) hands with other hand calculators."""
   for dealer1 in [9, 10, 1]:
     print()
-    analyze_hand(((10, 10), dealer1), Rules.make(num_decks=1), actions=actions)
+    analyze_hand(((10, 10), dealer1), Rules(num_decks=1), actions=actions)
 
 
 # %%
@@ -5276,7 +5264,7 @@ def test_some_split_hands2(dealer1: int = 10) -> None:
   for card1 in range(1, 11):
     card2 = card1
     # Only the SPLIT results differ.
-    analyze_hand(((card1, card2), dealer1), Rules.make(num_decks=1), actions=[Action.SPLIT])
+    analyze_hand(((card1, card2), dealer1), Rules(num_decks=1), actions=[Action.SPLIT])
 
 
 # %%
@@ -5310,7 +5298,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((2, 3, 6), 9), Rules.make(num_decks=1))
+  analyze_hand(((2, 3, 6), 9), Rules(num_decks=1))
 
 # hand=((2, 3, 6), 9)  EFFORT=3
 # Best_actions: bs=HIT id=HIT cd=HIT wiz=HIT bjstrat=HIT
@@ -5322,7 +5310,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((1, 10), 9), Rules.make(num_decks=1))
+  analyze_hand(((1, 10), 9), Rules(num_decks=1))
 
 # hand=((1, 10), 9)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
@@ -5332,7 +5320,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((1, 10), 1), Rules.make(num_decks=1), actions=Action)
+  analyze_hand(((1, 10), 1), Rules(num_decks=1), actions=Action)
 
 # hand=((1, 10), 1)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
@@ -5343,7 +5331,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((1, 10), 1), Rules.make(num_decks=1, obo=False, late_surrender=False))
+  analyze_hand(((1, 10), 1), Rules(num_decks=1, obo=False, late_surrender=False))
 
 # hand=((1, 10), 1)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
@@ -5353,7 +5341,7 @@ if EFFORT >= 1:
 
 # %%
 if EFFORT >= 1:
-  analyze_hand(((1, 10), 1), Rules.make(num_decks=1, obo=False))
+  analyze_hand(((1, 10), 1), Rules(num_decks=1, obo=False))
 # The situation is unclear if the player surrenders and the dealer then reveals a blackjack.
 # It could make sense that the player would then lose to the dealer blackjack because it is a
 # late surrender.  Our result agrees with Bjstrat on this.
@@ -5389,7 +5377,7 @@ def analyze_edge_wrt_attention(rules: Rules) -> None:
     report_edge(rules, Strategy(attention=attention), prefix=f'# {attention.name:<25.25} ')
 
 
-analyze_edge_wrt_attention(Rules.make(num_decks=1, cut_card=0))
+analyze_edge_wrt_attention(Rules(num_decks=1, cut_card=0))
 
 # For EFFORT=3:
 # TOTAL_OF_CARDS            prob: 0.013% (15s)  sim: 0.012% ±0.002%(93s)   wiz: 0.008%* bja: 0.021%+
@@ -5413,7 +5401,7 @@ analyze_edge_wrt_attention(Rules.make(num_decks=1, cut_card=0))
 # but are close to the results of WizardOfOdds:
 
 # %%
-report_edge(Rules.make(num_decks=6, hit_soft17=False, resplit_aces=True, cut_card=244))
+report_edge(Rules(num_decks=6, hit_soft17=False, resplit_aces=True, cut_card=244))
 # Rules(hit_soft17=False, resplit_aces=True, cut_card=244) Strategy() EFFORT=3:
 #  house edge: prob~ 0.264% (48s)  sim: 0.290% ±0.002%(62s)   wiz: 0.285%*
 
@@ -5421,7 +5409,7 @@ report_edge(Rules.make(num_decks=6, hit_soft17=False, resplit_aces=True, cut_car
 #  house edge: prob~ 0.264% (2s)   sim: 0.292% ±0.007%(9s)    wiz: 0.285%
 
 # %%
-report_edge(Rules.make(num_decks=8, hit_soft17=False, resplit_aces=True, cut_card=390))
+report_edge(Rules(num_decks=8, hit_soft17=False, resplit_aces=True, cut_card=390))
 # Rules(num_decks=8, hit_soft17=False, resplit_aces=True, cut_card=390) Strategy() EFFORT=3:
 #  house edge: prob~ 0.286% (53s)  sim: 0.306% ±0.002%(55s)   wiz: 0.301%*
 
@@ -5436,7 +5424,7 @@ report_edge(Rules.make(num_decks=8, hit_soft17=False, resplit_aces=True, cut_car
 # results of WizardOfOdds:
 
 # %%
-report_edge(Rules.make(num_decks=8, hit_soft17=True, resplit_aces=True, cut_card=312))
+report_edge(Rules(num_decks=8, hit_soft17=True, resplit_aces=True, cut_card=312))
 # Rules(num_decks=8, resplit_aces=True, cut_card=312) Strategy() EFFORT=3:
 #  house edge: prob~ 0.485% (45s)  sim: 0.508% ±0.002%(63s)   wiz: 0.500%*
 
@@ -5445,7 +5433,7 @@ report_edge(Rules.make(num_decks=8, hit_soft17=True, resplit_aces=True, cut_card
 
 # %%
 # https://wizardofodds.com/play/blackjack/ "live dealer casino online rules":
-TYPICAL_ONLINE_DEALER_RULES = Rules.make(
+TYPICAL_ONLINE_DEALER_RULES = Rules(
     num_decks=8, hit_soft17=False, obo=False, late_surrender=False, split_to_num_hands=2,
     cut_card=(8 // 2) * DECK_SIZE)
 report_edge(TYPICAL_ONLINE_DEALER_RULES)
@@ -5459,7 +5447,7 @@ report_edge(TYPICAL_ONLINE_DEALER_RULES)
 
 # %%
 # https://wizardofodds.com/online-gambling/playn-go/
-PLAYNGO_STANDARD_RULES = Rules.make(
+PLAYNGO_STANDARD_RULES = Rules(
     num_decks=6, hit_soft17=False, split_to_num_hands=2, late_surrender=False, cut_card=0)
 report_edge(PLAYNGO_STANDARD_RULES)
 # Rules(hit_soft17=False, late_surrender=False, split_to_num_hands=2, cut_card=0) Strategy()
@@ -5467,7 +5455,7 @@ report_edge(PLAYNGO_STANDARD_RULES)
 #  house edge: prob: 0.460% (7s)   sim: 0.461% ±0.002%(73s)   wiz: 0.460%  bja: 0.458%+
 
 # %%
-PLAYNGO_EUROPEAN_RULES = Rules.make(
+PLAYNGO_EUROPEAN_RULES = Rules(
     num_decks=6, hit_soft17=False, double_min_total=9, obo=False, late_surrender=False,
     split_to_num_hands=2, cut_card=0)
 report_edge(PLAYNGO_EUROPEAN_RULES)
@@ -5477,7 +5465,7 @@ report_edge(PLAYNGO_EUROPEAN_RULES)
 
 
 # %%
-PLAYNGO_SINGLE_DECK_RULES = Rules.make(
+PLAYNGO_SINGLE_DECK_RULES = Rules(
     num_decks=1, blackjack_payout=6/5, hit_soft17=False, split_to_num_hands=2, cut_card=0)
 report_edge(PLAYNGO_SINGLE_DECK_RULES)
 # Rules(num_decks=1, blackjack_payout=1.2, hit_soft17=False, split_to_num_hands=2, cut_card=0)
@@ -5487,7 +5475,7 @@ report_edge(PLAYNGO_SINGLE_DECK_RULES)
 # %%
 # Pitch Blackjack https://www.countingedge.com/blackjack-variations/pitch-blackjack/
 # We are uncertain what `obo` should be set to.
-PITCH_BLACKJACK_SINGLE_DECK_RULES = Rules.make(
+PITCH_BLACKJACK_SINGLE_DECK_RULES = Rules(
     num_decks=1, hit_soft17=False, double_after_split=False, cut_card=24)
 report_edge(PITCH_BLACKJACK_SINGLE_DECK_RULES)
 # Rules(num_decks=1, hit_soft17=False, double_after_split=False, cut_card=24) Strategy() EFFORT=3:
@@ -5495,7 +5483,7 @@ report_edge(PITCH_BLACKJACK_SINGLE_DECK_RULES)
 
 # %%
 # Pitch Blackjack https://www.countingedge.com/blackjack-variations/pitch-blackjack/
-PITCH_BLACKJACK_DOUBLE_DECK_RULES = Rules.make(
+PITCH_BLACKJACK_DOUBLE_DECK_RULES = Rules(
     num_decks=2, hit_soft17=False, double_after_split=False, cut_card=DECK_SIZE)
 report_edge(PITCH_BLACKJACK_DOUBLE_DECK_RULES)
 # Rules(num_decks=2, hit_soft17=False, double_after_split=False, cut_card=52) Strategy() EFFORT=3:
@@ -5554,7 +5542,7 @@ report_edge(WORST_RULES, WORST_STRATEGY)
 # It is surprising that 8 decks is still quite different from an infinite shoe:
 
 # %%
-analyze_number_of_decks(Rules.make(late_surrender=False))
+analyze_number_of_decks(Rules(late_surrender=False))
 # The simulation results match the Wikipedia table very well, more so than WizardOfOdds for
 # num_decks=1.
 # For an infinite shoe, the probabilistic and simulated house edges are nearly in agreement.
@@ -5572,13 +5560,13 @@ analyze_number_of_decks(Rules.make(late_surrender=False))
 # With a single deck and the rule "dealer stands on soft17", the house edge is negative:
 
 # %%
-report_edge(Rules.make(num_decks=1, hit_soft17=False, cut_card=24))
+report_edge(Rules(num_decks=1, hit_soft17=False, cut_card=24))
 # Rules(num_decks=1, hit_soft17=False, cut_card=24) Strategy() EFFORT=3:
 #  house edge: prob~-0.161% (13s)  sim:-0.057% ±0.002%(79s)   wiz:-0.053%
 
 # %%
 if EFFORT >= 2:
-  analyze_number_of_decks(Rules.make(hit_soft17=False, late_surrender=False))
+  analyze_number_of_decks(Rules(hit_soft17=False, late_surrender=False))
 # Rules(hit_soft17=False, late_surrender=False) EFFORT=3
 # ndecks=1   prob~-0.144% (11s)  sim:-0.021% ±0.002%(99s)   wiz:-0.031%*
 # ndecks=2   prob~ 0.193% (19s)  sim: 0.257% ±0.002%(63s)   wiz: 0.255%
@@ -5590,7 +5578,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  analyze_number_of_decks(Rules.make(cut_card=0))
+  analyze_number_of_decks(Rules(cut_card=0))
 # Rules(cut_card=0) EFFORT=3
 # ndecks=1   prob: 0.013% (11s)  sim: 0.012% ±0.002%(94s)   wiz: 0.008%* bja: 0.021%+
 # ndecks=2   prob: 0.328% (34s)  sim: 0.329% ±0.002%(75s)   wiz: 0.328%  bja: 0.316%+
@@ -5602,7 +5590,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  analyze_number_of_decks(Rules.make(hit_soft17=False, cut_card=0))
+  analyze_number_of_decks(Rules(hit_soft17=False, cut_card=0))
 # Rules(hit_soft17=False, cut_card=0) EFFORT=3
 # ndecks=1   prob:-0.161% (30s)  sim:-0.162% ±0.002%(94s)   wiz:-0.166%* bja:-0.197%+
 # ndecks=2   prob: 0.144% (17s)  sim: 0.144% ±0.002%(74s)   wiz: 0.141%* bja: 0.130%+
@@ -5644,7 +5632,7 @@ def analyze_subset_of_player_actions(rules: Rules) -> None:
 # to more than 2.5% :
 
 # %%
-analyze_subset_of_player_actions(Rules.make())
+analyze_subset_of_player_actions(Rules())
 # Rules() EFFORT=3
 # all (default)             prob~ 0.530% (16s)  sim: 0.556% ±0.002%(64s)   wiz: 0.551%*
 # no SURRENDER              prob~ 0.618% (1s)   sim: 0.642% ±0.002%(65s)
@@ -5741,7 +5729,7 @@ def analyze_rule_variations(rules: Rules, pattern: str = '.') -> None:
 
 # %%
 if EFFORT >= 1:
-  analyze_rule_variations(Rules.make())
+  analyze_rule_variations(Rules())
 # Rules() Strategy() EFFORT=3:
 #  house edge: prob~ 0.530% (0s)   sim: 0.556% ±0.002%(64s)   wiz: 0.551%*
 # Rule variation               Prob change  Sim change  Wizard change  Wikipedia
@@ -5767,7 +5755,7 @@ if EFFORT >= 1:
 # reported in Wikipedia, so perhaps this was the context of that reported number:
 
 # %%
-analyze_rule_variations(Rules.make(split_to_num_hands=2), pattern='no double after split')
+analyze_rule_variations(Rules(split_to_num_hands=2), pattern='no double after split')
 # Rules(split_to_num_hands=2) Strategy() EFFORT=3:
 #  house edge: prob~ 0.583% (7s)   sim: 0.609% ±0.002%(66s)   wiz: 0.604%*
 # Rule variation               Prob change  Sim change  Wizard change  Wikipedia
@@ -5778,7 +5766,7 @@ analyze_rule_variations(Rules.make(split_to_num_hands=2), pattern='no double aft
 # may have been obtained for a single deck:
 
 # %%
-analyze_rule_variations(Rules.make(num_decks=1), pattern='resplit aces|hit after split aces')
+analyze_rule_variations(Rules(num_decks=1), pattern='resplit aces|hit after split aces')
 # Rules(num_decks=1, cut_card=26) Strategy() EFFORT=3:
 #  house edge: prob~ 0.013% (11s)  sim: 0.149% ±0.002%(82s)   wiz: 0.121%*
 # Rule variation               Prob change  Sim change  Wizard change  Wikipedia
@@ -5794,7 +5782,7 @@ analyze_rule_variations(Rules.make(num_decks=1), pattern='resplit aces|hit after
 
 # %%
 if EFFORT >= 2:
-  explore_rule_variations(Rules.make(num_decks=8, cut_card=0))
+  explore_rule_variations(Rules(num_decks=8, cut_card=0))
 # original                : prob: 0.555% (38s)  sim: 0.558% ±0.002%(73s)   wiz: 0.555%  bja: 0.554%+
 # hit_soft17=False        : prob: 0.357% (18s)  sim: 0.358% ±0.002%(74s)   wiz: 0.357%  bja: 0.335%+
 # double_after_split=False: prob: 0.699% (50s)  sim: 0.702% ±0.002%(73s)   wiz: 0.699%  bja: 0.698%+
@@ -5812,7 +5800,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  explore_rule_variations(Rules.make(num_decks=8))
+  explore_rule_variations(Rules(num_decks=8))
 # original                : prob~ 0.555% (39s)  sim: 0.578% ±0.002%(62s)   wiz: 0.569%*
 # hit_soft17=False        : prob~ 0.357% (18s)  sim: 0.377% ±0.002%(62s)   wiz: 0.371%*
 # double_after_split=False: prob~ 0.699% (42s)  sim: 0.721% ±0.002%(62s)   wiz: 0.713%*
@@ -5831,7 +5819,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  explore_rule_variations(Rules.make(num_decks=1, cut_card=0))
+  explore_rule_variations(Rules(num_decks=1, cut_card=0))
 # original                : prob: 0.013% (12s)  sim: 0.012% ±0.002%(96s)   wiz: 0.008%* bja: 0.021%+
 # hit_soft17=False        : prob:-0.161% (12s)  sim:-0.162% ±0.002%(96s)   wiz:-0.166%* bja:-0.197%+
 # double_after_split=False: prob: 0.156% (36s)  sim: 0.155% ±0.002%(96s)   wiz: 0.152%* bja: 0.123%+
@@ -5852,7 +5840,7 @@ if EFFORT >= 2:
 
 # %%
 if EFFORT >= 2:
-  explore_rule_variations(Rules.make(num_decks=1, cut_card=24))
+  explore_rule_variations(Rules(num_decks=1, cut_card=24))
 # Observations: late_surrender=False introduces the greatest divergence.
 
 # original                : prob~ 0.013% (12s)  sim: 0.122% ±0.002%(82s)   wiz: 0.121%
@@ -5883,7 +5871,7 @@ if EFFORT >= 2:
 #   we expect and obtain consistent alignment of results there:
 
 # %%
-analyze_number_of_decks(Rules.make(cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
+analyze_number_of_decks(Rules(cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 # (Here the simulation results are less accurate because they can only use the
 # `Attention.INITIAL_CARDS_AND_TOTAL` strategy and not the more favorable
 # `Attention.HAND_AND_NUM_PRIOR_SPLITS` used by our probabilistic analysis and Wizard.)
@@ -5899,7 +5887,7 @@ analyze_number_of_decks(Rules.make(cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 
 # %%
 if EFFORT >= 2:
-  explore_rule_variations(Rules.make(num_decks=8, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
+  explore_rule_variations(Rules(num_decks=8, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 
 # Our probabilistic results are an almost perfect match to the Wizard results, except for one
 # discrepancy: `hit_split_aces=True`.  For this one exception, our result agrees with Bjstrat and
@@ -5921,7 +5909,7 @@ if EFFORT >= 2:
 
 # %%
 if 0:
-  explore_rule_variations(Rules.make(num_decks=8, cut_card=0),
+  explore_rule_variations(Rules(num_decks=8, cut_card=0),
                           Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS))
 # There are no discernible changes wrt to the cell above.
 
@@ -5930,7 +5918,7 @@ if 0:
 
 # %%
 if EFFORT >= 2:
-  explore_rule_variations(Rules.make(num_decks=1, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
+  explore_rule_variations(Rules(num_decks=1, cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 
 # Our probabilistic results are a near-perfect match to both the WizardOfOdds and the Bjstrat
 # results, except for `hit_split_aces=True` where the Wizard result differs (as also observed
@@ -5958,7 +5946,7 @@ if EFFORT >= 2:
 
 # %%
 if 0:
-  explore_rule_variations(Rules.make(num_decks=1, cut_card=0),
+  explore_rule_variations(Rules(num_decks=1, cut_card=0),
                           Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS))
 # The results are nearly identical to the above.  The reported probabilistic house edge is reduced
 # by 0.001% in about half of the instances.
@@ -6020,7 +6008,7 @@ def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) ->
 # in the case of continuous reshuffling (`cut_card=0`):
 
 # %%
-analyze_composition_dependent_strategy_with_number_of_decks(Rules.make(cut_card=0))
+analyze_composition_dependent_strategy_with_number_of_decks(Rules(cut_card=0))
 # Probabilistic house edge % using Rules(cut_card=0) and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
 #        1                0.013             -0.030           -0.0426
@@ -6048,7 +6036,7 @@ analyze_composition_dependent_strategy_with_number_of_decks(Rules.make(cut_card=
 
 # %%
 if EFFORT >= 1:
-  analyze_composition_dependent_strategy_with_number_of_decks(Rules.make())
+  analyze_composition_dependent_strategy_with_number_of_decks(Rules())
 # Probabilistic house edge % using Rules() and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
 #        1                0.013             -0.030           -0.0426
@@ -6074,7 +6062,7 @@ if EFFORT >= 1:
 # %%
 if EFFORT >= 2:
   analyze_composition_dependent_strategy_with_number_of_decks(
-      Rules.make(hit_soft17=False, cut_card=0))
+      Rules(hit_soft17=False, cut_card=0))
 # Probabilistic house edge % using Rules(hit_soft17=False, cut_card=0) and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
 #        1               -0.161             -0.205           -0.0443
@@ -6240,7 +6228,7 @@ def compute_and_plot_cut_card_analysis_result(num_decks: int) -> None:
   """Run a simulation if not already computed and then plot the results."""
   if num_decks not in cut_card_analysis_results:
     if num_decks <= 2 or EFFORT >= 2:
-      cut_card_analysis_results[num_decks] = get_cut_card_analysis(Rules.make(num_decks=num_decks))
+      cut_card_analysis_results[num_decks] = get_cut_card_analysis(Rules(num_decks=num_decks))
 
   if num_decks in cut_card_analysis_results:
     result = cut_card_analysis_results[num_decks]
@@ -6322,7 +6310,7 @@ def compute_house_edge_when_playing_a_fixed_number_of_hands() -> None:
   """Obtain this number to compare with "continuous reshuffle" in the plots."""
   print(f'# {EFFORT=}:')
   for num_decks in [1, 2, 4, 6, 8]:
-    report_edge(Rules.make(num_decks=num_decks, cut_card=0), prefix=f'# ndecks={num_decks:<3} ')
+    report_edge(Rules(num_decks=num_decks, cut_card=0), prefix=f'# ndecks={num_decks:<3} ')
 
 
 if EFFORT >= 2:
@@ -6399,13 +6387,13 @@ if EFFORT >= 2:
 # %%
 if 0:  # Run a single Rules rather than the full notebook.
   hh.clear_functools_caches(globals())
-  report_edge(Rules.make())
+  report_edge(Rules())
 
 # Note that these numbers only reflect usage since the last call to temporary_effort(); that is
 # the reason that basic_strategy_tables() shows zero hits.
 hh.analyze_functools_caches(globals())
 
-# EFFORT=3 single report_edge(Rules.make())
+# EFFORT=3 single report_edge(Rules())
 # Rules() Strategy() EFFORT=3:
 #  house edge: prob~ 0.530% (51s)  sim: 0.556% ±0.002%(67s)   wiz: 0.551%*
 # get_canonical_h..ards_and_total         707/inf        0.938 hit=       10_761 miss=          707
