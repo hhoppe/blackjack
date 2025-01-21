@@ -84,7 +84,6 @@
 
 # %%
 # ** Future to-do?
-# Improve CUDA performance of cut-card analysis.
 # For CUDA, make action_table.nbytes=144000 somehow fit into 64K constant memory.
 # Try numba.njit(nogil=True) and multithreading; https://stackoverflow.com/a/45612308.
 # Using prob or sim, compute house edge over many parameters and fit a function.
@@ -4205,6 +4204,8 @@ class HandCalculator(abc.ABC):
 
   Downloaded = dict[tuple[Hand, Action], float]
 
+  num_web_accesses = collections.Counter[tuple[str, Rules]]()  # [calculator_name, rules]
+
   def __init__(self, name: str) -> None:
     self.name = name
     self.read_downloaded = functools.cache(self._uncached_read_downloaded)
@@ -4218,6 +4219,7 @@ class HandCalculator(abc.ABC):
     downloaded = self.read_downloaded(rules)
     if downloaded and (hand, action) in downloaded:
       return downloaded[hand, action]
+    HandCalculator.num_web_accesses[self.name, rules] += 1
     return self._get_reward(hand, action, rules)
 
   @abc.abstractmethod
@@ -4437,6 +4439,10 @@ print(list(HAND_CALCULATORS))
 
 # %%
 if 0:
+  assert HAND_CALCULATORS['bjstrat'](((2, 3), 7), Action.HIT, Rules(num_decks=4)) == -0.1195
+
+# %%
+if 0:
   check_eq(
       HAND_CALCULATORS['bjstrat'].read_downloaded(Rules(num_decks=1))[((9, 9), 1), Action.STAND],
       -0.1861,
@@ -4461,11 +4467,16 @@ if 0:
 # %%
 def download_hand_calc_results() -> None:
   """Cache online calculator results to files to reduce requests."""
+  # To update downloads, remove data/* files before class HandCalculator initialization.
   calcs = HAND_CALCULATORS
+  #
+  # 2025-01-21: 'wiz' data is unchanged from 2022-06-11.
   # calcs['wiz'].download(Rules(num_decks=1))
   # calcs['wiz'].download(Rules(num_decks=1, hit_soft17=False))
   # calcs['wiz'].download(Rules(num_decks=2))
   # calcs['wiz'].download(Rules(num_decks=1, obo=False, late_surrender=False))
+  #
+  # 2025-01-21: 'bjstrat' data is unchanged from 2022-06-27.
   # calcs['bjstrat'].download(Rules(num_decks=1))
   # calcs['bjstrat'].download(Rules(num_decks=1, hit_soft17=False))
   # calcs['bjstrat'].download(Rules(num_decks=2))
@@ -4879,6 +4890,7 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
     else:
       try:
         url = 'https://wizardofodds.com/games/blackjack/calculator/'
+        # 2025-01-21 The table values are unchanged from 2022-04-18.
         with urllib.request.urlopen(
             urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
         ) as response:
@@ -7239,11 +7251,11 @@ show_added_global_variables_sorted_by_type()
 hh.show_notebook_cell_top_times()
 # EFFORT=0: ~52 s (0.8 GiB)
 # EFFORT=1: ~70 s (1.1 GiB) (bottleneck is prob. computations)
-#      Colab: ~150 s with 100% num_hands; max 12 GB mem; table of contents.
-#  SageMaker: ~870 s with 100% num_hands; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
-#     Kaggle: ~740 s with 100% num_hands; max 16 GB mem; 8x multiprocessing; must login.
-#   MyBinder: ~480 s with 20% num_hands; max 2 GB mem; copies GitHub; slow start.
-#   DeepNote: ~550 s with 20% num_hands; max 5 GB mem; table of contents; copies GitHub; must login.
+#      Colab: ~150 s; max 12 GB mem; table of contents.
+#  SageMaker: ~135 s; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
+#     Kaggle: ~740 s; max 16 GB mem; 8x multiprocessing; must login.
+#   MyBinder: ~480 s; max 2 GB mem; copies GitHub; slow start.
+#   DeepNote: ~550 s; max 5 GB mem; table of contents; copies GitHub; must login.
 # EFFORT=2: ~1000 s (+ ~130 s cut_card_analysis_results) (10.5 GiB) (~2700 s without USE_CUDA)
 #      Colab: ~2100 s
 # EFFORT=3: ~16_500 s (~4.5 hrs) (incl. 4000 s cut_card_analysis_results) (18.6 GiB)
@@ -7277,6 +7289,20 @@ def check_numba_signatures(verbose: bool = False) -> None:
 
 # %%
 check_numba_signatures()
+
+
+# %%
+def examine_non_downloaded_hand_calculator_queries() -> None:
+  """See if we need to cache more hand calculator results."""
+  for (calc_name, rules), num in HandCalculator.num_web_accesses.items():
+    print(f'{calc_name:<12} {rules!s:<80} {num}')
+
+
+# %%
+if 0:
+  examine_non_downloaded_hand_calculator_queries()
+# The 'prob' queries are from our "ProbHandCalculator".  There are a few queries for hands that
+# contain more than just the initial cards; these are not downloaded.
 
 # %% [markdown]
 # # End
