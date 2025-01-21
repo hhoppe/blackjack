@@ -233,6 +233,22 @@ def numba_njit(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
 
 
 # %%
+CUDA_KERNEL_PARAMS = tuple[int, int] | tuple[int, int, int] | tuple[int, int, int, int]
+
+
+# %%
+def cuda_jit(*args: Any, **kwargs: Any) -> Callable[[_F], Mapping[CUDA_KERNEL_PARAMS, _F]]:
+  """Typed replacement for non-bare `@cuda.jit()` decorator."""
+  assert kwargs or not (len(args) == 1 and callable(args[0]))
+
+  def decorator(func: _F) -> Mapping[CUDA_KERNEL_PARAMS, _F]:
+    jitted_func: Mapping[CUDA_KERNEL_PARAMS, _F] = cuda.jit(*args, **kwargs)(func)
+    return jitted_func
+
+  return decorator
+
+
+# %%
 def multiprocessing_is_available() -> bool:
   """Return True if multiprocessing may enable a performance improvement."""
   has_cpu_limit = os.environ.get('CPU_LIMIT') == '1.0'  # Kubernetes on mybinder.org
@@ -2545,12 +2561,12 @@ def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: in
   if 0:  # Principled but expensive 64-bit integers and remainder.
     random_offset = index * 907 + shoe_index * 997  # All relatively prime.
     index = (index + random_offset) % hand_start_card_index
-  elif 0:  # Faster approximation using 32-bit integers.
-    random_offset = uint32(uint32(index * 907) + uint32(shoe_index * 997))
-    index = uint32(uint32(index + random_offset) % uint32(hand_start_card_index))
-  else:  # Hacky but OK; just a pick random card among the first 32 cards of the shoe.
+  elif 0:  # Picking randomly among the first 32 shoe cards fails to capture the end effect.
     random_offset = uint32(uint32(index * 907) + uint32(shoe_index * 997))
     index = uint32(random_offset & 31)
+  else:  # We must exclude just the current hand.  Faster approximation using 32-bit integers.
+    random_offset = uint32(uint32(index * 907) + uint32(shoe_index * 997))
+    index = uint32(uint32(index + random_offset) % uint32(hand_start_card_index))
   return index
 
 
@@ -2559,7 +2575,7 @@ def end_of_shoe_reshuffle(index: int, shoe_index: int, hand_start_card_index: in
 # signature (which is invalid for numba.cuda), it was necessary to:
 # (1) use "numba.int64(0)" instead of "0" when initializing some integer function parameters, and
 # (2) avoid "enumerate(shoes)" as the result was not recognized as a C-contiguous array.
-# SIMULATE_HAND_SIGNATURE = 'Tuple((float64, int64))(int64, int64[::1], int64, boolean[:,::1], uint8[:,:,:,:,:,:,::1], int64, float64, boolean, boolean, int64, boolean, int64[::1])'
+# SIMULATE_HAND_SIGNATURE = 'Tuple((float64, int64))(int64, int64[::1], int64, boolean[:,::1], uint8[:,:,:,:,:,:,::1], int64, float64, boolean, boolean, int64, boolean, int64[::1], boolean)'
 
 
 # %%
@@ -2579,6 +2595,7 @@ def simulate_hand(
     rules_split_to_num_hands: int,
     rules_resplit_aces: bool,
     split_second_cards: _NDArray,
+    handle_shoe_end: bool,
 ) -> tuple[numba.float32, int]:
   """Return `(reward, card_index)` after playing a hand from the shoe."""
   int32, uint32, float32, uint8 = numba.int32, numba.uint32, numba.float32, numba.uint8
@@ -2594,7 +2611,7 @@ def simulate_hand(
     nonlocal card_index
     index = uint32(card_index)
     card_index = uint32(card_index + 1)
-    if index >= shoe_size:
+    if handle_shoe_end and index >= shoe_size:
       index = uint32(end_of_shoe_reshuffle(index, shoe_index, hand_start_card_index))
     card: Card = int32(shoe[uint32(index)])
     return card
@@ -2775,6 +2792,7 @@ def simulate_shoes_helper(
           rules_split_to_num_hands,
           rules_resplit_aces,
           split_second_cards,
+          False,  # handle_shoe_end
       )
       shoe_played_hands += 1
       sum_rewards += reward
@@ -3139,19 +3157,16 @@ if 0:
 # import importlib
 # random32 = importlib.reload(random32)
 
-# %%
-CUDA_MAX_SHOE_SIZE = 8 * DECK_SIZE
-
 
 # %%
-def write_numba_assembly_code(function: Callable[..., Any], filename: str) -> None:
+def write_numba_assembly_code(function: Any, filename: str) -> None:
   """Write the asm or ptx code for a numba function to an output file."""
-  (asm_or_ptx,) = function.inspect_asm().values()  # type: ignore[attr-defined]
+  (asm_or_ptx,) = function.inspect_asm().values()
   pathlib.Path(filename).write_text(asm_or_ptx, encoding='utf-8')
 
 
 # %%
-def report_cuda_kernel_properties(function: Callable[..., Any]) -> None:
+def report_cuda_kernel_properties(function: Any) -> None:
   """Show memory attributes of a CUDA kernel function."""
   PROPERTIES = 'const_mem_size local_mem_per_thread max_threads_per_block regs_per_thread shared_mem_per_block'.split()
   for property_name in PROPERTIES:
@@ -3283,6 +3298,7 @@ def create_unshuffled_shoe_cuda(
 ) -> _CudaArray:
   """Allocate a shoe. If there is a finite number of decks, enter their cards in the shoe."""
   int32, uint32 = numba.int32, numba.uint32
+  shoe_size = int32(shoe_size)
   thread_id = cuda.threadIdx.x  # Index within block.
   # threads_per_block = cuda.blockDim.x
   block_shoe_dynamic = cuda.shared.array(0, np.int8)  # (threads_per_block, shoe_size).
@@ -3365,7 +3381,7 @@ def shuffle_shoe_cuda(
 
 
 # %%
-@cuda.jit(fastmath=True)  # type: ignore[misc]
+@cuda_jit(fastmath=True)
 def create_and_simulate_shoes_cuda(
     rng_states: _CudaArray,
     hand_cards1: _CudaArray,
@@ -3432,6 +3448,7 @@ def create_and_simulate_shoes_cuda(
           rules_split_to_num_hands,
           rules_resplit_aces,
           split_second_cards,
+          False,  # handle_shoe_end
       )
       reward, card_index = float32(reward), uint32(card_index)
       shoe_played_hands = uint32(shoe_played_hands + 1)
@@ -3565,7 +3582,7 @@ def test_run_simulations_cuda() -> None:
 
 # %%
 if USE_CUDA:
-  test_run_simulations_cuda()  # ~4-9s jit.
+  test_run_simulations_cuda()  # ~4-10s jit.
 
 # %%
 if USE_CUDA:
@@ -3819,6 +3836,7 @@ def simulate_shoes_all_cut_cards_nonjit(
           rules_split_to_num_hands,
           rules_resplit_aces,
           split_second_cards,
+          True,  # handle_shoe_end
       )
       output_played_hands[card_index] += 1
       output_rewards[card_index] += reward
@@ -3949,8 +3967,10 @@ def run_simulations_all_cut_cards_cpu(
 # %%
 def test_all_cut_cards(func: Callable[..., CutCardAnalysisResult], frac: float) -> None:
   """Test the cut-card simulation function `func`."""
+  rules = Rules(num_decks=1)
   num_shoes = int(get_num_hands() * frac)
-  result = func(Rules(num_decks=1), Strategy(), num_shoes, quiet=True)
+  _ = func(rules, Strategy(), num_shoes // 10, quiet=True)  # Ensure jitted.
+  result = func(rules, Strategy(), num_shoes, quiet=True)
   assert 0.95 < result.num_shoes / num_shoes < 1.05
   v1 = result.house_edge_from_cut_card[1]
   v5 = result.house_edge_from_cut_card[5]
@@ -3963,7 +3983,7 @@ def test_all_cut_cards(func: Callable[..., CutCardAnalysisResult], frac: float) 
 
 # %%
 test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.001)  # jitting ~5 s.
-# With EFFORT=2, simulation rate is 10,220,171 hands/s.
+# With EFFORT=2, simulation rate is 108,888,028 hands/s.
 
 # %%
 if 0:
@@ -3983,7 +4003,11 @@ if 0:
 
 
 # %%
-@cuda.jit(fastmath=True)  # type: ignore[misc]
+CUDA_MAX_SHOE_SIZE = 8 * DECK_SIZE
+
+
+# %%
+@cuda_jit(fastmath=True)
 def simulate_cut_cards_cuda(
     rng_states: _CudaArray,
     shoes_per_thread: int,
@@ -4044,6 +4068,7 @@ def simulate_cut_cards_cuda(
           rules_split_to_num_hands,
           rules_resplit_aces,
           split_second_cards,
+          True,  # handle_shoe_end
       )
       reward, card_index2 = float32(reward), uint32(card_index2)
       cuda.atomic.add(shared_played_hands, card_index, 1)
@@ -4136,7 +4161,7 @@ def run_simulations_all_cut_cards_cuda(
 # %%
 if USE_CUDA:
   test_all_cut_cards(run_simulations_all_cut_cards_cuda, 0.2)
-# With EFFORT=2, simulation rate is 6,910,192,475 hands/s.
+# With EFFORT=2, simulation rate is 6,735,566,158 hands/s.
 
 # %%
 if USE_CUDA:
@@ -4677,7 +4702,6 @@ if 0:
 #  STAND   bs=-0.643247 id=-0.643247 sim=-0.643260±0.000061   cd=-0.643247  wiz:-0.643247  bjstrat:-0.643200
 #  HIT     bs=-0.495493 id=-0.495493 sim=-0.495524±0.000068   cd=-0.495493  wiz:-0.495493  bjstrat:-0.495500
 #  DOUBLE  bs=-0.990987 id=-0.990987 sim=-0.991046±0.000128   cd=-0.990987  wiz:-0.990987  bjstrat:-0.991000
-# [keep line for pylint]
 
 
 # %%
@@ -6667,7 +6691,6 @@ if EFFORT >= 2:
 # obo=False, ls=False     : prob: 0.121% (31s)  sim~ 0.125% ±0.001%(34s)   wiz: 0.121%  bjstrat: 0.122%
 # late_surrender=False    : prob: 0.008% (54s)  sim~ 0.012% ±0.001%(34s)   wiz: 0.008%  bjstrat: 0.008%
 # blackjack_payout=1.2    : prob: 1.365% (21s)  sim~ 1.369% ±0.001%(63s)   wiz: 1.365%  bjstrat: 1.365%
-# [keep line for pylint]
 
 # %% [markdown]
 # - If we further broaden the strategy attention to `HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLIT`,
@@ -6870,7 +6893,7 @@ if EFFORT >= 2:
 #   It's still unclear why this argument is invalid.
 
 # %%
-cut_card_analysis_results: dict[int, CutCardAnalysisResult] = {}
+cut_card_analysis_results: dict[int, CutCardAnalysisResult] = {}  # (Cleared again later.)
 
 
 # %%
@@ -7062,9 +7085,10 @@ def compute_and_plot_cut_card_analysis_results() -> None:
 # This mid-hand reshuffling results in a tiny dip in house edge.
 
 # %%
+cut_card_analysis_results = {}
 compute_and_plot_cut_card_analysis_results()
-# EFFORT=3: 3900 s (? s for num_decks=1)
-# EFFORT=4: ~?15 h (?2_500 s for num_decks=1)
+# EFFORT=3: 3900 s
+# EFFORT=4: ~?15 h
 
 
 # %%
