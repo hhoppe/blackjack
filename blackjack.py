@@ -222,6 +222,7 @@ PLUS_MINUS_STANDARD_DEVIATIONS = 2.0  # Results precision bracket; 95% probabili
 WARNING_STANDARD_DEVIATIONS = 3.0  # Warning '*' in results; 99.7% probability within 3 sdv.
 AVERAGE_CARDS_PER_HAND = 5.42  # Determined empirically (for one player against dealer).
 DISALLOWED = -1e10  # Large negative reward indicating an illegal action.
+QUICK = False  # Can be temporarily overriden.
 
 
 # %%
@@ -2870,7 +2871,7 @@ def test_simulate_single_shoe() -> None:
 
 # %%
 if 1:
-  test_simulate_single_shoe()  # ~6-14 s for jit compilation.
+  test_simulate_single_shoe()  # ~4-10 s for jit, plus costly probability tables for EFFORT >= 2.
 
 
 # %%
@@ -3587,7 +3588,7 @@ def test_run_simulations_cuda() -> None:
 
 # %%
 if USE_CUDA:
-  test_run_simulations_cuda()  # ~4-10s jit.
+  test_run_simulations_cuda()  # ~4-10s for jit.
 
 # %%
 if USE_CUDA:
@@ -3708,7 +3709,7 @@ if 0:
 def verify_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -> None:
   """Verify that house edge results match the CPU implementation."""
   rules = Rules(num_decks=num_decks, late_surrender=False)
-  num_hands = min(get_num_hands(), 10**10)
+  num_hands = 5 * 10**8 if QUICK else min(get_num_hands(), 10**10)
   # Both (1) ensure jit and (2) cache the action_table.
   _ = monte_carlo_house_edge_cuda(rules, Strategy(), num_hands // 20, quiet=True)
   start_time = time.perf_counter_ns()
@@ -3727,55 +3728,10 @@ def verify_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -
 
 # %%
 if USE_CUDA:
-  print(f'# With {EFFORT=}:')
-  verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001701)
-  verify_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004581)
-  verify_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005956)
-  verify_monte_carlo_house_edge_cuda(num_decks=6, expected_edge=0.006421)
-  verify_monte_carlo_house_edge_cuda(num_decks=8, expected_edge=0.006632)
-  verify_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007314)
+  with hh.temporary_assignment(globals(), QUICK=True):
+    print('# Tiny test to roughly check the house edge accuracy:')
+    verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001701)
 
-# With EFFORT=3:
-# ndecks=1   house edge 0.1695%   10,262,808,451 hands 10,364,502,305 hands/s
-# ndecks=2   house edge 0.4570%    9,699,694,703 hands 11,957,835,482 hands/s
-# ndecks=4   house edge 0.5954%    9,972,381,418 hands  8,336,460,906 hands/s
-# ndecks=6   house edge 0.6394%    9,706,938,664 hands  6,193,238,503 hands/s
-# ndecks=8   house edge 0.6623%    9,759,320,286 hands  4,392,904,512 hands/s
-# ndecks=inf house edge 0.7311%   10,000,008,000 hands 11,187,046,434 hands/s
-
-
-# %%
-def test_simulation_timings() -> None:
-  """Compare simulation rates for different approaches."""
-  args = Rules(num_decks=2), Strategy()
-  num_hands = 50_000_000
-  f1: Any = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=False, quiet=True)
-  f1()  # Memoize tables.
-  time_numba = hh.get_time(f1)
-  print(f'numba:              {int(num_hands / time_numba):>15,} hands/s')
-  f2 = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=True, quiet=True)
-  time_multi = hh.get_time(f2)
-  print(f'numba multiprocess: {int(num_hands / time_multi):>15,} hands/s')
-  if USE_CUDA:
-    num_hands *= 50
-    f3 = lambda: monte_carlo_house_edge_cuda(*args, num_hands, quiet=True)
-    time_cuda = hh.get_time(f3)
-    print(f'# numba.cuda:         {int(num_hands / time_cuda):>15,} hands/s')
-
-
-# %%
-if EFFORT >= 2:
-  test_simulation_timings()
-# Using parallelism introduces a ~6-9x speedup (beyond the 30x speedup of numba jitting), and
-# using CUDA introduces another 80-100x speedup.
-#
-# Timings are obtained on an AMD Ryzen 9 5900X 12-Core Processor 3701 MHz and
-# an NVIDIA GeForce RTX 3080 Ti.
-#
-# (Note: The hands/s for multiprocess often goes down by 1.5x to 3x until we restart the kernel.)
-# numba:                   11,925,119 hands/s
-# numba multiprocess:      70,783,821 hands/s
-# numba.cuda:          10,034,532,317 hands/s
 
 # %%
 monte_carlo_house_edge = monte_carlo_house_edge_cpu
@@ -3802,7 +3758,8 @@ if USE_CUDA:
 
 
 # %%
-def simulate_shoes_all_cut_cards_nonjit(
+@numba_njit()
+def simulate_shoes_all_cut_cards(
     start_shoe_index: int,
     shoes: _NDArray,
     split_table: _NDArray,
@@ -3844,13 +3801,6 @@ def simulate_shoes_all_cut_cards_nonjit(
       output_played_hands[card_index] += 1
       output_rewards[card_index] += reward
       card_index = card_index2
-
-
-# %%
-if RECOMPUTE_CUT_CARD_ANALYSIS:
-  simulate_shoes_all_cut_cards = numba_njit()(simulate_shoes_all_cut_cards_nonjit)
-else:
-  simulate_shoes_all_cut_cards = simulate_shoes_all_cut_cards_nonjit
 
 
 # %%
@@ -3985,7 +3935,8 @@ def test_all_cut_cards(func: Callable[..., CutCardAnalysisResult], frac: float) 
 
 
 # %%
-test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.01)  # jitting ~5 s.
+if 0:
+  test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.01)  # jitting ~5 s.
 # With EFFORT=3, simulation rate is 168,509,037 hands/s.
 
 # %%
@@ -4163,8 +4114,8 @@ def run_simulations_all_cut_cards_cuda(
 
 # %%
 if USE_CUDA:
-  test_all_cut_cards(run_simulations_all_cut_cards_cuda, 0.3)
-# With EFFORT=2, simulation rate is 6,735,566,158 hands/s.
+  # test_all_cut_cards(run_simulations_all_cut_cards_cuda, 0.3)
+  test_all_cut_cards(run_simulations_all_cut_cards_cuda, 0.02)  # ~10-14 s for jit
 
 # %%
 if USE_CUDA:
@@ -5277,6 +5228,82 @@ if 0:
 
 # %% [markdown]
 # # Results
+
+# %% [markdown]
+# ## Performance tests
+
+# %%
+if 1:
+  if 0:
+    hh.clear_functools_caches(globals())
+  print(f'# With {EFFORT=}, time to evaluate probabilistic house edge is:')
+  hh.print_time(lambda: probabilistic_house_edge(Rules(num_decks=6), Strategy(), quiet=True))
+# EFFORT=0: 35 ms
+# EFFORT=1: 35 ms
+# EFFORT=2: 5.9 s
+# EFFORT=3: 41 s
+
+# %%
+if USE_CUDA:
+  with hh.temporary_assignment(globals(), QUICK=False):
+    print(f'# With {EFFORT=}:')
+    verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001701)
+    verify_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004581)
+    verify_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005956)
+    verify_monte_carlo_house_edge_cuda(num_decks=6, expected_edge=0.006421)
+    verify_monte_carlo_house_edge_cuda(num_decks=8, expected_edge=0.006632)
+    verify_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007314)
+
+# With EFFORT=2:
+# ndecks=1   house edge 0.1695%   10,262,808,451 hands 10,423,098,010 hands/s
+# ndecks=2   house edge 0.4570%    9,699,694,703 hands 12,270,346,520 hands/s
+# ndecks=4   house edge 0.5954%    9,972,381,418 hands  8,496,713,806 hands/s
+# ndecks=6   house edge 0.6394%    9,706,938,664 hands  6,121,308,267 hands/s
+# ndecks=8   house edge 0.6623%    9,759,320,286 hands  4,476,829,777 hands/s
+# ndecks=inf house edge 0.7311%   10,000,008,000 hands 12,233,748,968 hands/s
+
+
+# %%
+def test_simulation_timings() -> None:
+  """Compare simulation rates for different approaches."""
+  print(f'# With {EFFORT=}:')
+  args = Rules(num_decks=2), Strategy()
+  num_hands = 50_000_000
+  f1: Any = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=False, quiet=True)
+  f1()  # Memoize tables.
+  time_numba = hh.get_time(f1)
+  print(f'# numba:              {int(num_hands / time_numba):>15,} hands/s')
+  f2 = lambda: monte_carlo_house_edge_cpu(*args, num_hands, parallel=True, quiet=True)
+  time_multi = hh.get_time(f2)
+  print(f'# numba multiprocess: {int(num_hands / time_multi):>15,} hands/s')
+  if USE_CUDA:
+    num_hands *= 50
+    f3 = lambda: monte_carlo_house_edge_cuda(*args, num_hands, quiet=True)
+    time_cuda = hh.get_time(f3)
+    print(f'# numba.cuda:         {int(num_hands / time_cuda):>15,} hands/s')
+
+
+# %%
+test_simulation_timings()
+# - Using parallelism introduces a ~6-9x speedup (beyond the 30x speedup of numba jitting).
+# - Using CUDA introduces another 80-100x speedup.
+#
+# Timings are obtained on an AMD Ryzen 9 5900X 12-Core Processor 3701 MHz and
+# an NVIDIA GeForce RTX 3080 Ti.
+#
+# (Note: The hands/s for multiprocess often goes down by 1.5x to 3x until we restart the kernel.)
+# With EFFORT=1:
+# numba:                   11,013,970 hands/s
+# numba multiprocess:     103,167,379 hands/s
+# numba.cuda:          10,024,697,928 hands/s
+
+# %%
+test_all_cut_cards(run_simulations_all_cut_cards_cpu, 0.01)
+# With EFFORT=3, simulation rate is 183,655,077 hands/s.
+
+# %%
+test_all_cut_cards(run_simulations_all_cut_cards_cuda, 0.3)
+# With EFFORT=3, simulation rate is 6,830,950,911 hands/s.
 
 # %% [markdown]
 # ## Tables for basic strategy
@@ -7256,8 +7283,8 @@ hh.show_notebook_cell_top_times()
 #     Kaggle: ~740 s; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s; max 2 GB mem; copies GitHub; slow start.
 #   DeepNote: ~550 s; max 5 GB mem; table of contents; copies GitHub; must login.
-# EFFORT=2: ~1000 s (+ ~130 s cut_card_analysis_results) (10.5 GiB) (~2700 s without USE_CUDA)
-#      Colab: ~2100 s
+# EFFORT=2: ~930 s (+ ~130 s cut_card_analysis_results) (10.5 GiB) (~2700 s without USE_CUDA)
+#      Colab: ~2100 s; SageMaker ~3000 s.
 # EFFORT=3: ~16_500 s (~4.5 hrs) (incl. 4000 s cut_card_analysis_results) (18.6 GiB)
 # EFFORT=4: ~40 hrs or more.
 
