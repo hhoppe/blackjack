@@ -3,8 +3,9 @@
 [Hugues Hoppe](https://hhoppe.com/)
 &nbsp;&nbsp;&mdash;&nbsp;
 &nbsp; [**[Open in Colab]**](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb)
-&nbsp; [**[Open in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
-&nbsp; [**[Open in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
+&nbsp; [**[in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
+&nbsp; [**[in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
+&nbsp; [**[in Deepnote]**](https://deepnote.com/launch?url=https%3A%2F%2Fgithub.com%2Fhhoppe%2Fblackjack%2Fblob%2Fmain%2Fblackjack.ipynb)
 &nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack)
 
 Blackjack &mdash; *"the most widely played casino banking game in the world"*.
@@ -46,7 +47,9 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
   and its [surprising oscillations](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#cut-card-graph).
 
 - Open-source Python, sped up with jitting (\~30x) and multiprocessing (\~10x),
-  simulating ~$10^{8}$ hands/s.
+  simulating \~$10^{8}$ hands/s.
+  
+- GPU implementation using `numba.cuda`, simulating \~$10^{10}$ hands/s.
 
 
 **Versions**:
@@ -55,6 +58,7 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
   approximate house edge.
 - 2.0 (July 2022): add Monte Carlo simulation, hand analysis,
   and cut-card analysis.
+- 3.0 (January 2025): add CUDA implementation of simulation.
 
 
 **Running this Jupyter notebook**:
@@ -64,7 +68,7 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
   (The notebook can also be executed on a
   [Colab server](
    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
-  but it runs ~20x slower due to the older, shared processor.)
+  where it greatly benefits from a CUDA GPU.)
 - Within a Linux environment (e.g.,
   [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install)):
 
