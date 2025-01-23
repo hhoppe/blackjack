@@ -152,7 +152,7 @@ EFFORT = typing.cast(Literal[0, 1, 2, 3, 4], hh.get_env_int('EFFORT', 2))
 """Controls the breadth and precision of the notebook experiments:
 - 0: Fast subset of experiments, at lowest precision (~50 s).
 - 1: Fast subset of experiments, at low precision (~70 s).
-- 2: Most experiments, at normal precision (~17 minutes).
+- 2: Most experiments, at normal precision (~14 minutes).
 - 3: All experiments, at high precision (~4.5 hours, including 1 hour cut-card analysis).
 - 4: Run at even higher precision (>40 hours), likely on isolated experiments."""
 assert 0 <= EFFORT <= 4
@@ -222,7 +222,7 @@ PLUS_MINUS_STANDARD_DEVIATIONS = 2.0  # Results precision bracket; 95% probabili
 WARNING_STANDARD_DEVIATIONS = 3.0  # Warning '*' in results; 99.7% probability within 3 sdv.
 AVERAGE_CARDS_PER_HAND = 5.42  # Determined empirically (for one player against dealer).
 DISALLOWED = -1e10  # Large negative reward indicating an illegal action.
-QUICK = False  # Can be temporarily overriden.
+QUICK = False  # Can be temporarily overridden.
 
 
 # %%
@@ -7283,7 +7283,7 @@ hh.show_notebook_cell_top_times()
 #     Kaggle: ~740 s; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s; max 2 GB mem; copies GitHub; slow start.
 #   DeepNote: ~550 s; max 5 GB mem; table of contents; copies GitHub; must login.
-# EFFORT=2: ~930 s (+ ~130 s cut_card_analysis_results) (10.5 GiB) (~2700 s without USE_CUDA)
+# EFFORT=2: ~830 s (+ ~130 s cut_card_analysis_results) (10.5 GiB) (~2700 s without USE_CUDA)
 #      Colab: ~2100 s; SageMaker ~3000 s.
 # EFFORT=3: ~16_500 s (~4.5 hrs) (incl. 4000 s cut_card_analysis_results) (18.6 GiB)
 # EFFORT=4: ~40 hrs or more.
