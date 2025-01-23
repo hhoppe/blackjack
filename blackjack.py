@@ -180,6 +180,7 @@ _CudaEvent = Any  # cuda.cudadrv.driver.Event
 
 # %%
 check_eq = hh.check_eq
+QUICK = False  # Can be temporarily overridden.
 _ORIGINAL_GLOBALS = list(globals())  # Store current set of variable names.
 _ = np.seterr(all='raise')  # Let all numpy warnings raise errors.
 hh.start_timing_notebook_cells()
@@ -222,7 +223,6 @@ PLUS_MINUS_STANDARD_DEVIATIONS = 2.0  # Results precision bracket; 95% probabili
 WARNING_STANDARD_DEVIATIONS = 3.0  # Warning '*' in results; 99.7% probability within 3 sdv.
 AVERAGE_CARDS_PER_HAND = 5.42  # Determined empirically (for one player against dealer).
 DISALLOWED = -1e10  # Large negative reward indicating an illegal action.
-QUICK = False  # Can be temporarily overridden.
 
 
 # %%
