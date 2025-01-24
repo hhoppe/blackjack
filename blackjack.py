@@ -7,7 +7,7 @@
 # &nbsp; [**[in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
 # &nbsp; [**[in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
 # &nbsp; [**[in DeepNote]**](https://deepnote.com/launch?url=https%3A%2F%2Fgithub.com%2Fhhoppe%2Fblackjack%2Fblob%2Fmain%2Fblackjack.ipynb)
-# &nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack)
+# &nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
 #
 # Blackjack &mdash; _"the most widely played casino banking game in the world"_.
 
