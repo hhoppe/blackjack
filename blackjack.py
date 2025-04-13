@@ -2851,7 +2851,8 @@ def simulate_shoes(
 # %%
 def test_simulate_single_shoe() -> None:
   """Debug simulation on small shoe."""
-  deck = np.array(CARD_VALUES).repeat(NUM_SUITS)
+  dtype = np.int64
+  deck = np.array(CARD_VALUES, dtype).repeat(NUM_SUITS)
   np.random.default_rng(4).shuffle(deck)
   shoes = deck[None]
   # print(shoes)
@@ -7311,7 +7312,7 @@ def check_numba_signatures(verbose: bool = False) -> None:
           print(f'  {signature}')
       if num:
         expected = 2 if name == 'simulate_hand' else 1  # 2 for `handle_shoe_end`.
-        assert num <= expected, (name, num, expected)
+        assert num <= expected, (name, num, expected, func.overloads.keys())
 
 
 # %%
