@@ -4848,8 +4848,8 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
         ) as response:
           text = response.read().decode('utf-8')
       except urllib.error.URLError:
-        table = np.full((), math.inf)
-        return table
+        empty_table = np.full((), math.inf)
+        return empty_table
 
     table = np.full((6, 2, 2, 3, 3, 2, 2, 2, 2), math.inf)
     regex = re.compile(r'^edgeTable' + r'\[(\d)\]' * 9 + r'=([-\d.eE]+);$')
