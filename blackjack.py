@@ -284,8 +284,8 @@ def show_kernel_memory_resident_set_size() -> None:
     warnings.warn('show_kernel_memory_resident_set_size is only implemented for linux.')
     return
   command = f'ps -p {os.getpid()} -o rss --no-headers'
-  output = subprocess.run(command, shell=True, check=True, capture_output=True, text=True).stdout
-  rss_kb = int(output)
+  text = subprocess.check_output(command, shell=True, text=True)
+  rss_kb = int(text)
   print(f'{rss_kb*1024/1e9:.1f} GiB')
 
 
@@ -4255,9 +4255,8 @@ class WizardHandCalculator(HandCalculator):
       url = 'https://wizardofodds.com/calculators-js/blackjack/calculate/?' + '&'.join(
           f'{chr(ord("a") + i)}={arg}' for i, arg in enumerate(args)
       )
-      with urllib.request.urlopen(
-          urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
-      ) as response:
+      request = urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
+      with urllib.request.urlopen(request) as response:
         text: str = response.read().decode('utf-8')
       return text
 
@@ -4843,9 +4842,8 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
       try:
         url = 'https://wizardofodds.com/games/blackjack/calculator/'
         # 2025-01-21 The table values are unchanged from 2022-04-18.
-        with urllib.request.urlopen(
-            urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
-        ) as response:
+        request = urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
+        with urllib.request.urlopen(request) as response:
           text = response.read().decode('utf-8')
       except urllib.error.URLError:
         empty_table = np.full((), math.inf)
@@ -5019,9 +5017,8 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
         f'&SUR={"Yes" if rules.late_surrender else "No"}'
     )
     try:
-      with urllib.request.urlopen(
-          urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
-      ) as response:
+      request = urllib.request.Request(url, headers={'User-Agent': 'Chrome'})
+      with urllib.request.urlopen(request) as response:
         text = response.read().decode('utf-8')  # {"decks":"6","HE":"0.529"}
     except urllib.error.URLError:
       return None
