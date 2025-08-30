@@ -186,8 +186,8 @@ _ = np.seterr(all='raise')  # Let all numpy warnings raise errors.
 hh.start_timing_notebook_cells()
 
 # %%
+# Disable graphics plot windows when running this notebook as a script.
 if not hh.in_notebook():
-  # Disable graphics plot windows when running this notebook as a script.
   plt.show = lambda *args, **kwargs: None
 
 # %%
