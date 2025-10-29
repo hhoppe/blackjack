@@ -8,12 +8,12 @@
 # "xoshiro128+ 1.0, our best and fastest 32-bit generator for 32-bit floating-point numbers".
 
 import math
-from typing import Any
+from typing import Any, TypeAlias
 
 from numba import (config, cuda, float32, uint32, int32, from_dtype, jit)
 import numpy as np
 
-_CudaArray = Any  # cuda.cudadrv.devicearray.DeviceNDArray
+_CudaArray: TypeAlias = Any  # cuda.cudadrv.devicearray.DeviceNDArray
 
 # Untyped decorator makes function untyped.
 # mypy: disable-error-code="misc"

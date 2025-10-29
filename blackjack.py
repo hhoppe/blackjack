@@ -122,7 +122,7 @@ import sys
 import textwrap
 import time
 import typing
-from typing import Any, Literal, Union
+from typing import Any, Literal, TypeAlias, Union
 import unittest.mock
 import urllib.parse
 import urllib.request
@@ -174,9 +174,9 @@ _F = typing.TypeVar('_F', bound=Callable[..., Any])
 _T = typing.TypeVar('_T')
 
 # %%
-_NDArray = numpy.typing.NDArray[Any]
-_CudaArray = Any  # cuda.cudadrv.devicearray.DeviceNDArray
-_CudaEvent = Any  # cuda.cudadrv.driver.Event
+_NDArray: TypeAlias = numpy.typing.NDArray[Any]
+_CudaArray: TypeAlias = Any  # cuda.cudadrv.devicearray.DeviceNDArray
+_CudaEvent: TypeAlias = Any  # cuda.cudadrv.driver.Event
 
 # %%
 check_eq = hh.check_eq
