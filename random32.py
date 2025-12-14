@@ -15,8 +15,7 @@ import numpy as np
 
 _CudaArray: TypeAlias = Any  # cuda.cudadrv.devicearray.DeviceNDArray
 
-# Untyped decorator makes function untyped.
-# mypy: disable-error-code="misc"
+# mypy: disable-error-code="untyped-decorator"
 
 # This implementation is based upon the xoshiro128+ algorithm described at:
 #     http://xoroshiro.di.unimi.it/
