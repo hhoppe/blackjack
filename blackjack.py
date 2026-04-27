@@ -96,7 +96,7 @@
 # ## Imports
 
 # %%
-# !pip install -q hhoppe-tools matplotlib more-itertools numba numpy tqdm
+# !pip install -q hhoppe-tools matplotlib more-itertools numba numba-cuda numpy tqdm
 
 # %%
 # !if [ ! -f random32.py ]; then wget https://github.com/hhoppe/blackjack/raw/main/random32.py; fi
