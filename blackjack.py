@@ -5377,7 +5377,7 @@ verify_action_tables(Rules(hit_soft17=False), expected=EXPECTED_BASIC_STRATEGY_A
 def table_difference_locations(
     tables1: Mapping[str, _NDArray],
     tables2: Mapping[str, _NDArray],
-) -> dict[str, list[tuple[int, int]]]:
+) -> dict[str, list[list[int]]]:
   """Identify the locations of any differing entries in table sets."""
   differences = {}
   for (name1, table1), (name2, table2) in zip(tables1.items(), tables2.items(), strict=True):
