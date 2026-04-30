@@ -62,7 +62,6 @@
 
 # %% [markdown]
 # **Running this Jupyter notebook**:
-# - The notebook requires Python 3.10 or later.
 # - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU. <br/>
 #   (The notebook can also be [executed on a Colab server](
 #    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
