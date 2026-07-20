@@ -39,7 +39,7 @@ def rotl(x: uint32, k: uint32) -> uint32:
   """Left rotate x by k bits."""
   x = uint32(x)
   k = uint32(k)
-  return (x << k) | (x >> uint32(32 - k))
+  return uint32((x << k) | (x >> uint32(32 - k)))
 
 
 @jit(forceobj=_forceobj, looplift=_looplift, nopython=_nopython)
@@ -108,6 +108,7 @@ def xoshiro128p_next_raw(
   Returns:
     Tuple of (random_value, new_s0, new_s1, new_s2, new_s3).
   """
+  s0, s1, s2, s3 = uint32(s0), uint32(s1), uint32(s2), uint32(s3)
   result = uint32(s0 + s3)
   t = uint32(s1 << 9)
 
@@ -119,7 +120,7 @@ def xoshiro128p_next_raw(
   s2 ^= t
   s3 = rotl(s3, 11)
 
-  return result, s0, s1, s2, s3
+  return uint32(result), uint32(s0), uint32(s1), uint32(s2), uint32(s3)
 
 
 @jit(forceobj=_forceobj, looplift=_looplift, nopython=_nopython)
@@ -197,7 +198,7 @@ def xoshiro128p_normal_float32(states: _CudaArray, index: int32) -> float32:
   u1 = xoshiro128p_uniform_float32(states, index)
   u2 = xoshiro128p_uniform_float32(states, index)
 
-  z0 = math.sqrt(float32(-2.0) * math.log(u1)) * math.cos(TWO_PI_FLOAT32 * u2)
+  z0 = float32(math.sqrt(float32(-2.0) * math.log(u1)) * math.cos(TWO_PI_FLOAT32 * u2))
   return z0
 
 

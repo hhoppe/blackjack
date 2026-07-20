@@ -11,6 +11,11 @@ exclude = "(^Other|^blackjack_other)"
 ignore_missing_imports = true
 strict = true
 
+[[tool.mypy.overrides]]
+module = ["numba.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
 [tool.pyink]
 pyink-indentation = 2
 line-length = 100  # Default is 88.
