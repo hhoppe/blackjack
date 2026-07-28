@@ -10,8 +10,8 @@
 import math
 from typing import Any, TypeAlias
 
-from numba import (config, cuda, float32, uint32, int32, from_dtype, jit)
 import numpy as np
+from numba import config, cuda, float32, from_dtype, int32, jit, uint32
 
 _CudaArray: TypeAlias = Any  # cuda.cudadrv.devicearray.DeviceNDArray
 

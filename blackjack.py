@@ -101,9 +101,10 @@
 # !if [ ! -f random32.py ]; then wget https://github.com/hhoppe/blackjack/raw/main/random32.py; fi
 
 # %%
+from __future__ import annotations
+
 import abc
 import collections
-from collections.abc import Callable, Iterable, Iterator, Mapping
 import contextlib
 import dataclasses
 import enum
@@ -121,28 +122,30 @@ import sys
 import textwrap
 import time
 import typing
-from typing import Any, Literal, TypeAlias, Union
 import unittest.mock
+import urllib.error
 import urllib.parse
 import urllib.request
 import warnings
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
+from typing import Any, Literal, TypeAlias
 
 import hhoppe_tools as hh
 import matplotlib.pyplot as plt
 import more_itertools
 import numba
-from numba import cuda
 import numba.cuda.random
 import numpy as np
 import numpy.typing
 import tqdm
+from numba import cuda
+
 import random32
 
 
 # %%
 def omit_cell_output() -> None:
   """Return None so that the cell does not output anything."""
-  return None
 
 
 # %%
@@ -265,7 +268,7 @@ def multiprocessing_is_available() -> bool:
 
 # %%
 @contextlib.contextmanager
-def temporary_effort(effort: int) -> Iterator[None]:
+def temporary_effort(effort: int) -> Generator[None, None, None]:
   """Temporarily set the global `EFFORT` to `effort` and clear all memoization caches."""
   assert 0 <= effort <= 4
   hh.clear_functools_caches(globals())
@@ -1098,7 +1101,7 @@ during SPLIT draw.  If set to a larger value (e.g., 11), there are many distinct
 reward_after_dealer_upcard(), resulting in increased run time and memory utilization
 (memoization lru_cache); besides, results do not change much."""
 
-RecentCards = Union[Cards, None]
+RecentCards = Cards | None
 """Sorted tuple of card values (1-10), or None if not tracked."""
 
 
@@ -2728,7 +2731,8 @@ def simulate_hand(
   if have_split:
     reward = float32(0.0)
     num_split_second_cards = uint32(create_split_hands(card1))
-    for card2 in split_second_cards[:num_split_second_cards]:
+    for split_second_card in split_second_cards[:num_split_second_cards]:
+      card2 = split_second_card
       reward += float32(simulate_potentially_split_hand())
 
   else:
@@ -2771,6 +2775,7 @@ def simulate_shoes_helper(
 ) -> tuple[int, float, float]:
   """Return `(played_hands, sum_rewards, sum_squared_rewards)` over all hands played from shoes."""
   assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
+  int64 = numba.int64
   split_second_cards = np.zeros(SPLIT_SECOND_CARDS_SIZE, np.int64)
   total_played_hands = 0
   sum_rewards = 0.0
@@ -2779,7 +2784,7 @@ def simulate_shoes_helper(
   for index in range(shoes.shape[0]):  # (numba thinks "enumerate(shoes)" yields non-C arrays.)
     shoe = shoes[index]
     shoe_index = start_shoe_index + index
-    card_index = numba.int64(0)  # (Instead of "0" to avoid jitting Literal[int](0) below.)
+    card_index = int64(0)  # (Instead of "0" to avoid jitting Literal[int](0) below.)
     shoe_played_hands = 0
 
     while True:
@@ -3007,7 +3012,7 @@ def run_simulations(
         )
         start = stop
       outcomes = pool.starmap(simulate_many_shoes, tasks_args)
-    played_hands, sum_rewards, sum_squared_rewards = (sum(e) for e in zip(*outcomes))
+    played_hands, sum_rewards, sum_squared_rewards = (sum(e) for e in zip(*outcomes, strict=True))
   else:
     played_hands, sum_rewards, sum_squared_rewards = simulate_many_shoes(
         rules,
@@ -3049,9 +3054,9 @@ def test_monte_carlo_house_edge_cpu() -> None:
   house_edge, played_hands, reward_sdv = monte_carlo_house_edge_cpu(
       Rules(num_decks=1, late_surrender=False), Strategy(), num_hands, quiet=True
   )
-  # print(house_edge, played_hands, reward_sdv)
-  assert 0.9 < played_hands / num_hands < 1.1
-  assert 0.0016 < house_edge < 0.0018 and 1.1 < reward_sdv < 1.2
+  # print(f'{played_hands=} {house_edge=:.5f} {reward_sdv=:.5f}')
+  assert 0.9 < played_hands / num_hands < 1.1, played_hands / num_hands
+  assert 0.0016 < house_edge < 0.0018 and 1.1 < reward_sdv < 1.2, (house_edge, reward_sdv)
 
 
 # %%
@@ -3409,7 +3414,7 @@ def create_and_simulate_shoes_cuda(
 ) -> None:
   """Compute `(played_hands, sum_rewards, sum_squared_rewards)` over all hands."""
   # pylint: disable=no-value-for-parameter, comparison-with-callable
-  int32, uint32, float32 = numba.int32, numba.uint32, numba.float32
+  int32, uint32, float32, float64 = numba.int32, numba.uint32, numba.float32, numba.float64
   shoe_size = int32(shoe_size)
   rules_cut_card, hands_per_shoe = int32(rules_cut_card), int32(hands_per_shoe)
   assert split_table.ndim == 2 and action_table.ndim == 7
@@ -3477,7 +3482,7 @@ def create_and_simulate_shoes_cuda(
   cuda.syncthreads()
 
   # Each thread adds its local results to shared memory.
-  cuda.atomic.add(shared_result, 0, numba.float64(num_played_hands))
+  cuda.atomic.add(shared_result, 0, float64(num_played_hands))
   cuda.atomic.add(shared_result, 1, sum_rewards)
   cuda.atomic.add(shared_result, 2, sum_squared_rewards)
   cuda.syncthreads()
@@ -3693,7 +3698,7 @@ def monte_carlo_house_edge_cuda_timing(num_decks: float) -> None:
 
 
 # %%
-if 0:
+if 0:  # noqa: SIM102
   if USE_CUDA:
     print('Timing:')
     # (Sometimes, whatever timing is done first shows a slower time.)
@@ -3776,12 +3781,13 @@ def simulate_shoes_all_cut_cards(
   assert start_shoe_index >= 0 and shoes.ndim == 2
   assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
   assert output_played_hands.shape == output_rewards.shape == (shoes.shape[1],)
+  int64 = numba.int64
   split_second_cards = np.zeros(SPLIT_SECOND_CARDS_SIZE, np.int64)
   min_num_player_cards = 0
   for index in range(shoes.shape[0]):  # (numba thinks "enumerate(shoes)" yields non-C arrays.)
     shoe = shoes[index]
     shoe_index = start_shoe_index + index
-    card_index = numba.int64(0)  # (Instead of "0" to avoid jitting Literal[int](0) below.)
+    card_index = int64(0)  # (Instead of "0" to avoid jitting Literal[int](0) below.)
     while card_index < len(shoe):
       reward, card_index2 = simulate_hand(
           shoe_index,
@@ -4155,7 +4161,9 @@ class HandCalculator(abc.ABC):
 
   Downloaded = dict[tuple[Hand, Action], float]
 
-  num_web_accesses = collections.Counter[tuple[str, Rules]]()  # [calculator_name, rules]
+  num_web_accesses: typing.ClassVar[collections.Counter[tuple[str, Rules]]] = (
+      collections.Counter()  # [calculator_name, rules]
+  )
 
   def __init__(self, name: str) -> None:
     self.name = name
@@ -4403,7 +4411,7 @@ for _hand_calc in HAND_CALCULATORS.values():
   _hand_calc.test()
 
 # %%
-if 0:
+if 0:  # noqa: SIM102
   if 'wiz' in HAND_CALCULATORS and 'bjstrat' in HAND_CALCULATORS:
     check_eq(
         {
@@ -4600,6 +4608,8 @@ def analyze_hand(
         f'# Best_actions: bs={bs_best_action.name} id={id_best_action.name}'
         f' cd={cd_best_action.name} {s}'
     )
+  else:
+    id_best_action = actions[0]
 
   for action in actions:
     # bs_reward = post_peek_reward_for_action(state, rules, BASIC_STRATEGY, action)
@@ -6976,9 +6986,9 @@ def plot_cut_card_analysis_result(
 
   unused_fig, ax = plt.subplots(figsize=(7, 4), dpi=110)
 
-  ax.plot(*zip(*tuple(graph.items())))
+  ax.plot(*zip(*tuple(graph.items()), strict=True))
   dots = {k: v for k, v in graph.items() if k in [1, 2, 3, 4, max_cut_card, cut_card]}
-  ax.plot(*zip(*tuple(dots.items())), 'o')
+  ax.plot(*zip(*tuple(dots.items()), strict=True), 'o')
   ax.set_title(
       'House edge as function of cut-card depth'
       f' for {num_decks} deck{"s" if num_decks != 1 else ""}'
@@ -7032,8 +7042,10 @@ def plot_cut_card_analysis_result(
     legend_text = [
         repr(result.rules).replace(f', {cut_card=}', ''),
         re.sub(r'frozenset\(.*?\)', first_actions_s, repr(result.strategy)),
-        f'Simulation(num_shoes={result.num_shoes:_})'
-        f'  Time: {int(result.elapsed_time):,} s; Rate: {hands_per_s:,} hands/s',
+        (
+            f'Simulation(num_shoes={result.num_shoes:_})'
+            f'  Time: {int(result.elapsed_time):,} s; Rate: {hands_per_s:,} hands/s'
+        ),
     ]
 
     def wrap(text: str) -> str:
@@ -7301,14 +7313,14 @@ def check_numba_signatures(verbose: bool = False) -> None:
   for func in funcs:
     name = func.__name__
     if hasattr(func, 'overloads'):
-      num = len(list(func.overloads.keys()))
+      num = len(func.overloads)
       if verbose:
         print(f'\n{name}  {num}')
-        for signature in func.overloads.keys():
+        for signature in func.overloads:
           print(f'  {signature}')
       if num:
         expected = 2 if name == 'simulate_hand' else 1  # 2 for `handle_shoe_end`.
-        assert num <= expected, (name, num, expected, func.overloads.keys())
+        assert num <= expected, (name, num, expected, list(func.overloads))
 
 
 # %%
