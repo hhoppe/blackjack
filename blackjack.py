@@ -4493,7 +4493,7 @@ ProbHandCalculator().test()
 # %%
 def best_action_for_hand(hand: Hand, rules: Rules, hand_calc: HandCalculator) -> Action:
   """Return the best action for the hand according to the calculator."""
-  return max(Action, key=lambda action: hh.assert_not_none(hand_calc(hand, action, rules)))
+  return max(Action, key=lambda action: hh.not_none(hand_calc(hand, action, rules)))
 
 
 # %%
@@ -4708,7 +4708,7 @@ def look_for_hands_with_differences_in_calculated_optimal_actions(
         if not hand_calc.is_downloaded(rules):
           continue
         all_reward_actions[name] = reward_actions = sorted(
-            ((hh.assert_not_none(hand_calc(hand, action, rules)), action) for action in Action),
+            ((hh.not_none(hand_calc(hand, action, rules)), action) for action in Action),
             key=lambda t: (t[0], t[1].value),
             reverse=True,
         )
@@ -4923,8 +4923,8 @@ class WizardHouseEdgeCalculator(HouseEdgeCalculator):
     table_axes = [axis for axis in self.axes if axis[0] != 'blackjack_payout']
     rules_max = Rules(**{name: h for name, (h, l) in table_axes}, cut_card=0)
     rules_min = Rules(**{name: l for name, (h, l) in table_axes}, cut_card=0)
-    check_eq(hh.assert_not_none(self(rules_max, cd_strategy)) * 100, self.table.max())
-    check_eq(hh.assert_not_none(self(rules_min, cd_strategy)) * 100, self.table.min())
+    check_eq(hh.not_none(self(rules_max, cd_strategy)) * 100, self.table.max())
+    check_eq(hh.not_none(self(rules_min, cd_strategy)) * 100, self.table.min())
 
     # Check a few data points.
     rules = Rules(num_decks=6, hit_soft17=False, resplit_aces=True)
@@ -4956,7 +4956,7 @@ class HouseEdgeFromHandCalculator(HouseEdgeCalculator):
 
     def get_initial_reward(hand: Hand, action: Action) -> float:
       """Return the initial reward given the hand-calculator post-peek reward."""
-      post_peek_reward = hh.assert_not_none(self.hand_calc(hand, action, rules))
+      post_peek_reward = hh.not_none(self.hand_calc(hand, action, rules))
       return initial_reward_from_post_peek_reward(post_peek_reward, hand, action, rules)
 
     # Compute the expected reward over all possible 3 dealt cards.
@@ -5750,7 +5750,7 @@ def find_significant_reward_differences_across_hand_calculators(rules: Rules) ->
     state = hand[0], hand[1], ()
     cd_reward = post_peek_reward_for_action(state, rules, strategy, action)
     for name, hand_calc in HAND_CALCULATORS.items():
-      reward = hh.assert_not_none(hand_calc(hand, action, rules))
+      reward = hh.not_none(hand_calc(hand, action, rules))
       # The Bjstrat results report exactly 4 digits.
       # The Wizard results report 16 digits, and seem precise up to 6 digits.
       # The SPLIT rewards have large differences, so we increase their tolerance.
