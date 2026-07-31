@@ -1,15 +1,16 @@
 [tool.autopep8]
 indent_size = 2
-ignore = "E121,E125,E126,E129,E226,E302,E305,E501,W504,E741,E20,W503,E731"
-exclude = ".ipynb_checkpoints,Other,blackjack_other*"
+ignore = "E111,E114,E121,E125,E126,E129,E226,E302,E305,E501,W504,E741,E20,W503,E731"
 aggressive = 3
 recursive = true
+exclude = ".ipynb_checkpoints,Other,blackjack_other*"
 
 [tool.mypy]
 cache_dir = "~/.cache/mypy"
-exclude = "(^Other|^blackjack_other)"
 ignore_missing_imports = true
 strict = true
+files = ["."]
+exclude = "(^Other|^blackjack_other)"
 
 [[tool.mypy.overrides]]
 module = ["numba.*"]
@@ -47,8 +48,8 @@ expected-line-ending-format = "LF"
 
 [tool.pyrefly]
 min-severity = "warn"
-project-excludes = ["*.ipynb", "Other", "blackjack_other.*"]
 replace-imports-with-any = ["numba.*"]
+project-excludes = ["*.ipynb", "Other", "blackjack_other.*"]
 
 [tool.pyrefly.errors]
 untyped-import = false
@@ -57,11 +58,12 @@ redundant-condition = false
 
 [tool.pytype]
 keep_going = true
-exclude = ['Other', 'blackjack_other*']
 strict_none_binding = true
 use_enum_overlay = true
 use_fiddle_overlay = true
 disable = ["incomplete-match"]
+inputs = ["."]
+exclude = ['Other', 'blackjack_other*']
 
 [tool.ruff]
 extend-exclude = ["*.ipynb", "Other", "blackjack_other.*"]
