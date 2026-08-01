@@ -510,16 +510,9 @@ omit_cell_output()
 # ## Define `Action` and `Strategy`
 # <a name="Define-Action-and-Strategy"></a>
 
-# %%
-# pytype fails on hh.OrderedEnum; it is ok with enum.Enum but then max((reward, action)) may fail.
-if typing.TYPE_CHECKING:
-  OrderedEnum = enum.Enum
-else:
-  OrderedEnum = hh.OrderedEnum
-
 
 # %%
-class Action(OrderedEnum):
+class Action(hh.OrderedEnum):
   """Player actions."""
 
   STAND = enum.auto()

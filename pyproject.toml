@@ -37,7 +37,7 @@ disable = [
 reports = false
 score = false
 recursive = true
-ignore-paths = [".*ipynb_checkpoints", "Other", "blackjack_other*", "^.pytype", ".*/.pytype"]
+ignore-paths = [".*ipynb_checkpoints", "Other", "blackjack_other*"]
 
 [tool.pylint.basic]
 good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
@@ -55,15 +55,6 @@ project-excludes = ["*.ipynb", "Other", "blackjack_other*"]
 untyped-import = false
 unnecessary-type-conversion = false
 redundant-condition = false
-
-[tool.pytype]
-keep_going = true
-strict_none_binding = true
-use_enum_overlay = true
-use_fiddle_overlay = true
-disable = ["incomplete-match"]
-inputs = ["."]
-exclude = ["Other", "blackjack_other*"]
 
 [tool.ruff]
 extend-exclude = ["*.ipynb", "Other", "blackjack_other*"]
