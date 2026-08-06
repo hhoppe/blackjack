@@ -142,6 +142,9 @@ from numba import cuda
 
 import random32
 
+# %%
+hh.patch_numba_cuda_for_python314()
+
 
 # %%
 def omit_cell_output() -> None:
