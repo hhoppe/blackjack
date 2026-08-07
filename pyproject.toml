@@ -6,7 +6,6 @@ recursive = true
 exclude = ".ipynb_checkpoints,Other,blackjack_other*"
 
 [tool.mypy]
-cache_dir = "~/.cache/mypy"
 ignore_missing_imports = true
 strict = true
 files = ["."]
