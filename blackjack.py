@@ -1922,8 +1922,7 @@ def verify_action_tables(rules: Rules, expected: Mapping[str, str]) -> None:
 
 # %%
 EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
-    'hard': textwrap.dedent(
-        """\
+    'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -1940,10 +1939,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'soft': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'soft': textwrap.dedent("""\
         [[H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -1952,10 +1949,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
          [Ds  Ds  Ds  Ds  Ds  S   S   H   H   H  ]
          [S   S   S   S   Ds  S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'pair': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'pair': textwrap.dedent("""\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [H   H   H   Ph  Ph  H   H   H   H   H  ]
@@ -1965,14 +1960,12 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_H17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Uph]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
-    ),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
 }
 """Expected tables for "dealer hits on soft 17" with 6 decks."""
 
 EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
-    'hard': textwrap.dedent(
-        """\
+    'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -1989,10 +1982,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'soft': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'soft': textwrap.dedent("""\
         [[H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   H   Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -2001,10 +1992,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [S   Ds  Ds  Ds  Ds  S   S   H   H   H  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'pair': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'pair': textwrap.dedent("""\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [H   H   H   Ph  Ph  H   H   H   H   H  ]
@@ -2014,8 +2003,7 @@ EXPECTED_BASIC_STRATEGY_ACTION_6DECKS_S17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Ph ]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
-    ),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
 }
 """Expected tables for "dealer stands on soft 17" with 6 decks."""
 
@@ -2023,8 +2011,7 @@ omit_cell_output()
 
 # %%
 EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
-    'hard': textwrap.dedent(
-        """\
+    'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -2041,10 +2028,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'soft': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'soft': textwrap.dedent("""\
         [[H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -2053,10 +2038,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
          [S   Ds  Ds  Ds  Ds  S   S   H   H   H  ]
          [S   S   S   S   Ds  S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'pair': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'pair': textwrap.dedent("""\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  Ph  H   H   H  ]
          [H   H   Ph  Ph  Ph  H   H   H   H   H  ]
@@ -2066,14 +2049,12 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_H17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Ph ]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   Ps ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
-    ),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
 }
 """Expected tables for "dealer hits on soft 17" with 1 deck."""
 
 EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
-    'hard': textwrap.dedent(
-        """\
+    'hard': textwrap.dedent("""\
         [[H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
          [H   H   H   H   H   H   H   H   H   H  ]
@@ -2090,10 +2071,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'soft': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'soft': textwrap.dedent("""\
         [[H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
          [H   H   Dh  Dh  Dh  H   H   H   H   H  ]
@@ -2102,10 +2081,8 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [S   Ds  Ds  Ds  Ds  S   S   H   H   S  ]
          [S   S   S   S   Ds  S   S   S   S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [S   S   S   S   S   S   S   S   S   S  ]]"""
-    ),
-    'pair': textwrap.dedent(
-        """\
+         [S   S   S   S   S   S   S   S   S   S  ]]"""),
+    'pair': textwrap.dedent("""\
         [[Ph  Ph  Ph  Ph  Ph  Ph  H   H   H   H  ]
          [Ph  Ph  Ph  Ph  Ph  Ph  Ph  H   H   H  ]
          [H   H   Ph  Ph  Ph  H   H   H   H   H  ]
@@ -2115,8 +2092,7 @@ EXPECTED_BASIC_STRATEGY_ACTION_1DECK_S17 = {
          [Ps  Ps  Ps  Ps  Ps  Ph  Ph  Ph  Ph  Ph ]
          [Ps  Ps  Ps  Ps  Ps  S   Ps  Ps  S   S  ]
          [S   S   S   S   S   S   S   S   S   S  ]
-         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""
-    ),
+         [Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph  Ph ]]"""),
 }
 """Expected tables for "dealer stands on soft 17" with 1 deck."""
 
