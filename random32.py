@@ -3,7 +3,7 @@
 # - Allow access to uint32.
 # - Allow rng state to be stored in four registers.
 
-# See http://prng.di.unimi.it/xoshiro128plus.c  -- xoshiro128+.
+# See https://prng.di.unimi.it/xoshiro128plus.c  -- xoshiro128+.
 # 2018 by David Blackman and Sebastiano Vigna (vigna@acm.org)
 # "xoshiro128+ 1.0, our best and fastest 32-bit generator for 32-bit floating-point numbers".
 
@@ -18,7 +18,7 @@ _CudaArray: TypeAlias = Any  # cuda.cudadrv.devicearray.DeviceNDArray
 # mypy: disable-error-code="untyped-decorator"
 
 # This implementation is based upon the xoshiro128+ algorithm described at:
-#     http://xoroshiro.di.unimi.it/
+#     https://prng.di.unimi.it/
 #
 # Originally implemented by David Blackman and Sebastiano Vigna.
 # This is a 32-bit version adapted from the 64-bit implementation.
@@ -44,7 +44,7 @@ def rotl(x: uint32, k: uint32) -> uint32:
 
 @jit(forceobj=_forceobj, looplift=_looplift, nopython=_nopython)
 def init_xoshiro128p_state(states: _CudaArray, index: int32, seed: uint32) -> None:
-  """Initialize xoshiro128+ state from a 32-bit seed using SplitMix32.
+  """Initialize xoshiro128+ state from a 32-bit seed using the murmur3 fmix32 and Weyl increments.
 
   Args:
     states: 1D array with dtype=xoshiro128p_dtype that holds RNG states.
@@ -198,7 +198,9 @@ def xoshiro128p_normal_float32(states: _CudaArray, index: int32) -> float32:
   u1 = xoshiro128p_uniform_float32(states, index)
   u2 = xoshiro128p_uniform_float32(states, index)
 
-  z0 = float32(math.sqrt(float32(-2.0) * math.log(u1)) * math.cos(TWO_PI_FLOAT32 * u2))
+  # Use 1 - u1 (in (0, 1]) because log(0) would be -inf.
+  radius = math.sqrt(float32(-2.0) * math.log(float32(1.0) - u1))
+  z0 = float32(radius * math.cos(TWO_PI_FLOAT32 * u2))
   return z0
 
 
@@ -229,10 +231,10 @@ def init_xoshiro128p_states(
 ) -> None:
   """Initialize RNG states on the GPU for parallel generators.
 
-  This initializes the RNG states so that each state in the array corresponds to subsequences separated
-  by 2^64 steps from each other in the main sequence. Therefore, as long no CUDA thread requests more
-  than 2^64 random numbers, all of the RNG states produced by this function are guaranteed to be
-  independent.
+  This initializes the RNG states so that each state in the array corresponds to subsequences
+  separated by 2^64 steps from each other in the main sequence. Therefore, as long as no CUDA thread
+  requests more than 2^64 random numbers, all of the RNG states produced by this function are
+  guaranteed to be independent.
 
   Args:
     states: DeviceNDArray with dtype=xoshiro128p_dtype that holds RNG states.
@@ -251,10 +253,10 @@ def create_xoshiro128p_states(
 ) -> _CudaArray:
   """Return a new device array initialized for n random number generators.
 
-  This initializes the RNG states so that each state in the array corresponds to subsequences separated
-  by 2^64 steps from each other in the main sequence. Therefore, as long no CUDA thread requests more
-  than 2^64 random numbers, all of the RNG states produced by this function are guaranteed to be
-  independent.
+  This initializes the RNG states so that each state in the array corresponds to subsequences
+  separated by 2^64 steps from each other in the main sequence. Therefore, as long as no CUDA thread
+  requests more than 2^64 random numbers, all of the RNG states produced by this function are
+  guaranteed to be independent.
 
   Args:
     n: Number of RNG states to create.

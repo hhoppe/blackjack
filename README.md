@@ -22,16 +22,16 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
      for cut-card effects and precise split-hand rewards.
 
 - Support for many [rule variations](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Define-Rules)
-  (12 parameters including #decks, dealer hit soft17, cut-card, ...)
+  (13 parameters including #decks, dealer hit soft17, cut-card, ...).
 
 - Optimal [action tables](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Tables-for-basic-strategy) for
-  [basic strategy](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Define-Actions-and-Strategy)
+  [basic strategy](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Define-Action-and-Strategy)
   under any rules, reproducing
   [Wikipedia](https://en.wikipedia.org/wiki/Blackjack#Basic_strategy) and
   [WizardOfOdds](https://wizardofodds.com/games/blackjack/strategy/calculator/) results.
 
-- Six separate [composition-dependent strategies](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Define-Actions-and-Strategy)
-  based on different levels of *attention*.
+- Six [composition-dependent strategies](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Define-Action-and-Strategy)
+  based on progressively greater levels of *attention*.
   <!--(initial cards, all hand cards, cards in *prior split hands*, ...).-->
 
 - Computation of
@@ -75,12 +75,12 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
 ```bash
     sudo apt install python3-pip
     python3 -m pip install --upgrade pip
-    pip install jupyterlab jupytext matplotlib numba tqdm
+    pip install jupyterlab jupytext
     jupyter lab --no-browser
 ```
 
 - Open the URL (output by `jupyter lab`) using a web browser (e.g., Google Chrome on Windows).
-- Load the notebook (`*.ipynb` file).
+- Load the notebook (`blackjack.ipynb` file).
 - Evaluate all cells in `Code library` and then selectively evaluate `Results`.
 - Adjust the `EFFORT` global variable to trade off speed and accuracy.
 
@@ -89,9 +89,9 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
 
 - https://en.wikipedia.org/wiki/Blackjack
 - https://wizardofodds.com/games/blackjack/basics/#rules
-- https://www.casinoguardian.co.uk/blackjack/ -- rich; explore more?
+- https://www.casinoguardian.co.uk/blackjack/
 - https://wizardofvegas.com/guides/blackjack-survey/
-- https://www.blackjackinfo.com/ -- created by Ken Smith; explore?
+- https://www.blackjackinfo.com/
 - https://www.onlinegambling.com/blackjack/odds/
 - https://www.onlineunitedstatescasinos.com/las-vegas/blackjack/
 - https://en.wikipedia.org/wiki/Gambling_mathematics

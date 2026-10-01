@@ -6,7 +6,7 @@
 # &nbsp; [**[Open in Colab]**](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb)
 # &nbsp; [**[in Kaggle]**](https://www.kaggle.com/notebooks/welcome?src=https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
 # &nbsp; [**[in MyBinder]**](https://mybinder.org/v2/gh/hhoppe/blackjack/main?filepath=blackjack.ipynb)
-# &nbsp; [**[in DeepNote]**](https://deepnote.com/launch?url=https%3A%2F%2Fgithub.com%2Fhhoppe%2Fblackjack%2Fblob%2Fmain%2Fblackjack.ipynb)
+# &nbsp; [**[in Deepnote]**](https://deepnote.com/launch?url=https%3A%2F%2Fgithub.com%2Fhhoppe%2Fblackjack%2Fblob%2Fmain%2Fblackjack.ipynb)
 # &nbsp; [**[GitHub source]**](https://github.com/hhoppe/blackjack/blob/main/blackjack.ipynb)
 #
 # Blackjack &mdash; _"the most widely played casino banking game in the world"_.
@@ -23,7 +23,7 @@
 #      for cut-card effects and precise split-hand rewards.
 #
 # - Support for many [rule variations](#Define-Rules)
-#   \(12 parameters including #decks, dealer hit soft17, cut-card, ...).
+#   \(13 parameters including #decks, dealer hit soft17, cut-card, ...).
 #
 # - Optimal [action tables](#Tables-for-basic-strategy) for
 #   [basic strategy](#Define-Action-and-Strategy)
@@ -291,7 +291,7 @@ def show_kernel_memory_resident_set_size() -> None:
   command = f'ps -p {os.getpid()} -o rss --no-headers'
   text = subprocess.check_output(command, shell=True, text=True)
   rss_kb = int(text)
-  print(f'{rss_kb*1024/1e9:.1f} GiB')
+  print(f'{rss_kb * 1024 / 2**30:.1f} GiB')
 
 
 # %%
@@ -482,13 +482,13 @@ BEST_RULES = Rules(
     hit_split_aces=True,
     double_split_aces=True,
     cut_card=0,
+    hit_soft17=False,
 )
 """Combination of rules with the lowest house edge (which is in fact negative)."""
 
 WORST_RULES = Rules(
     num_decks=math.inf,
     blackjack_payout=1,
-    hit_soft17=False,
     obo=False,
     late_surrender=False,
     double_min_total=10,
@@ -504,10 +504,10 @@ omit_cell_output()
 
 # %%
 # We do not distinguish between different cards with value 10, i.e., 10, jack, queen, and king.
-# A possible issue of whether the player is allowed to split any two cards with value 10,
+# A possible issue is whether the player is allowed to split any two cards with value 10,
 # e.g. (king, 10).  This is usually allowed.  If it were disallowed, it would affect the
 # probability of occurrence of splits and resplits.  However, the basic strategy tables show that
-# is always favorable to stand on (10, 10), so the issue is moot.
+# it is always favorable to stand on (10, 10), so the issue is moot.
 
 # %% [markdown]
 # ## Define `Action` and `Strategy`
@@ -649,7 +649,7 @@ initial cards."""
 
 COMPOSITION_DEPENDENT_STRATEGY = Strategy(attention=Attention.HAND_AND_NUM_PRIOR_SPLITS)
 """The composition-dependent strategy considers all the cards in the current hand plus the number
-of prior split hands.  It less powerful than HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS but only
+of prior split hands.  It is less powerful than HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS but only
 very slightly."""
 
 omit_cell_output()
@@ -751,7 +751,7 @@ omit_cell_output()
 # **Card probabilities**
 #
 # Before each card is drawn, we create a table of card counts from the original shoe,
-# then subtract all of cards in the current hand state (both the player and dealer cards),
+# then subtract all of the cards in the current hand state (both the player and dealer cards),
 # and thus determine the probability of each card value.
 #
 # A tricky aspect is that with `rules.obo` (Original Bets Only, which is True by default),
@@ -772,7 +772,7 @@ omit_cell_output()
 # - We select the dealer upcard `dealer1` with uniform distribution.
 # - We select player `card1` conditional on `[dealer1]`.
 # - We select player `card2` conditional on `[dealer1, card1]`.
-# - We determine `prob_dealer_bj` based on `[dealer1, card1, card2]`,
+# - We determine `prob_dealer_bj` based on `[dealer1, card1, card2]`.
 # - We select all subsequent player cards conditional on `recent_cards` (which contains
 #    `dealer1, card1, card2, ...`) and on `dealer1` if it is 1 or 10 due to
 #    constraints on `dealer2` that dealer has no blackjack.
@@ -1402,7 +1402,7 @@ def action_allowed(state: State, rules: Rules, action: Action) -> bool:
 # %%
 def reward_for_action(state: State, rules: Rules, strategy: Strategy, action: Action) -> float:
   """Return the expected reward for either:
-  - the first action (i.e., if player_total is None) (using card1 and card2) or
+  - the first action (i.e., if len(player_cards) == 2) (using card1 and card2) or
   - subsequent actions (using player_total and player_soft).
   The reward does not account for player blackjack (and if rules.obo, dealer blackjack)."""
   player_cards, _, _ = state
@@ -1543,7 +1543,7 @@ def best_reward_estimate_and_action(
     strategy: Strategy,
 ) -> tuple[float, Action]:
   """Determine the action with the best expected reward under the restricted state of
-  `strategy.attention`.  Return the action and the reward estimated using the restricted state.
+  `strategy.attention`.  Return the reward and the action estimated using the restricted state.
 
   Note that best_reward_and_action() evaluates the action rewards using reward_for_action()
   rather than reward_for_initial_hand().  Therefore, the computed rewards ignore player bj
@@ -1740,7 +1740,7 @@ def reward_for_basic_strategy_total(
   recent_cards = make_recent((dealer1,), rules)
   card1_candidates = (
       range(1, 2)
-      if player_soft or player_total == 21
+      if player_soft
       else range(max(2, player_total - 10), min(10, player_total - 2) + 1)
   )
 
@@ -1748,7 +1748,7 @@ def reward_for_basic_strategy_total(
     prob1 = card_probabilities(recent_cards, rules, None)[card1]
     card2 = player_total - card1 - (10 if player_soft else 0)
     if 0:
-      assert 1 <= card1, card2 <= 10
+      assert 1 <= card1 <= 10 and 1 <= card2 <= 10
       assert combine_two_cards(card1, card2) == (player_total, player_soft)
     # For probabilistic analysis, first action on pairs is considered elsewhere (in the
     # pairs-action table).  For simulation, create_tables() uses this function for first action
@@ -2200,7 +2200,7 @@ if 0:
 #         0.039    7.901 reward_for_double (/tmp/ipykernel:1)
 
 # %% [markdown]
-# ##  Monte Carlo simulation
+# ## Monte Carlo simulation
 # <a name="Monte-Carlo-simulation"></a>
 
 # %% [markdown]
@@ -2272,7 +2272,7 @@ def default_shoes_creator(rules: Rules) -> CreateShoes:
 def simulate_hand_shoes_creator(hand: Hand, rules: Rules) -> CreateShoes:
   """Return a creator of shoes to simulate a specific hand."""
   player_cards, dealer1 = hand
-  # The order in which cards are dealt is: card1, dealer1, card2, dealer2, card3, ... cardn.
+  # The order in which cards are dealt is: card1, dealer1, card2, dealer2, card3, ... cardn,
   # so we will need to rotate dealer2 in front of (card3, ... cardn).
   hand_cards = player_cards[0], dealer1, *player_cards[1:]
   dtype = np.int64
@@ -2455,7 +2455,7 @@ def create_tables(rules: Rules, strategy: Strategy, *, quiet: bool) -> tuple[_ND
 # %%
 def test_create_tables(rules: Rules, strategy: Strategy) -> None:
   """Check that all hands have possible actions, and that all possible actions have hands."""
-  _, action_table = create_tables(rules, strategy, quiet=False)
+  action_table = create_tables(rules, strategy, quiet=False)[1].copy()  # (It is memoized.)
   for unpermuted_cards in generate_all_hands(rules):
     for cards in more_itertools.distinct_permutations(unpermuted_cards):
       player_total, player_soft = combine_cards(cards)
@@ -2524,7 +2524,7 @@ if 0:
 def get_int_split_to_num_hands(rules: Rules) -> int:
   """Return split_to_num_hands converted to an integer."""
   if rules.split_to_num_hands == math.inf:
-    return 100  # Some large number.
+    return SPLIT_SECOND_CARDS_SIZE  # Effectively unlimited; P(more hands) is ~5e-8 per split.
   return int(rules.split_to_num_hands)
 
 
@@ -2858,7 +2858,8 @@ def get_shoes_per_seed(rules: Rules) -> int:
 
 
 # %%
-# Workaround: a local function cannot be pickled; we use shared memory instead.
+# Workaround: a local function cannot be pickled; we pass it via a global inherited by the forked
+# processes.
 _global_create_shoes: CreateShoes
 
 
@@ -3150,7 +3151,10 @@ def write_numba_assembly_code(function: Any, filename: str) -> None:
 # %%
 def report_cuda_kernel_properties(function: Any) -> None:
   """Show memory attributes of a CUDA kernel function."""
-  PROPERTIES = 'const_mem_size local_mem_per_thread max_threads_per_block regs_per_thread shared_mem_per_block'.split()
+  PROPERTIES = (
+      'const_mem_size local_mem_per_thread max_threads_per_block regs_per_thread'
+      ' shared_mem_per_block'
+  ).split()
   for property_name in PROPERTIES:
     (value,) = getattr(function, 'get_' + property_name)().values()
     print(f'{property_name} = {value}')
@@ -3179,7 +3183,7 @@ def disable_numba_logging_cuda_error_not_ready() -> None:
 # %%
 @hh.selective_lru_cache(maxsize=None, ignore_kwargs=('quiet',))
 def create_tables_cuda(
-    rules: Rules, strategy: Strategy, quiet: bool
+    rules: Rules, strategy: Strategy, *, quiet: bool
 ) -> tuple[_CudaArray, _CudaArray]:
   """Create and memoize device versions of tables."""
   split_table, action_table = create_tables(rules, strategy, quiet=quiet)
@@ -3196,7 +3200,7 @@ def show_cuda_kernel_progress(
     desc: str,
     quiet: bool = False,
 ) -> None:
-  """Show progress of CUDA kernel given."""
+  """Show the progress of the CUDA kernel until `event` completes."""
   disable_numba_logging_cuda_error_not_ready()
   event.record()
   last_progress = 0
@@ -3359,7 +3363,7 @@ def shuffle_shoe_cuda(
   if num_fixed > 3:  # Rotate latter cards to insert random dealer2 card in front of [player_]card3.
     rotate_right(shoe[3 : num_fixed + 1])
 
-  # Updates to this structured array does affect the value in the caller function.
+  # Updates to this structured array do affect the value in the caller function.
   rng['s0'], rng['s1'], rng['s2'], rng['s3'] = s0, s1, s2, s3
 
 
@@ -3502,7 +3506,7 @@ def run_simulations_cuda(
 
   rules_split_to_num_hands = get_int_split_to_num_hands(rules)
   rules2 = normalize_rules_for_probabilistic_analysis(rules)
-  d_split_table, d_action_table = create_tables_cuda(rules2, strategy, quiet)
+  d_split_table, d_action_table = create_tables_cuda(rules2, strategy, quiet=quiet)
   # print(f'{d_split_table.nbytes=} {d_action_table.nbytes=:_}')  # 100, 144_000
 
   seed = start_shoe_index
@@ -3751,7 +3755,7 @@ def simulate_shoes_all_cut_cards(
 ) -> None:
   """Play hands from all shoes, updating arrays played_hands and rewards."""
   assert start_shoe_index >= 0 and shoes.ndim == 2
-  assert shoes.ndim == 2 and split_table.ndim == 2 and action_table.ndim == 7
+  assert split_table.ndim == 2 and action_table.ndim == 7
   assert output_played_hands.shape == output_rewards.shape == (shoes.shape[1],)
   int64 = numba.int64
   split_second_cards = np.zeros(SPLIT_SECOND_CARDS_SIZE, np.int64)
@@ -4031,7 +4035,7 @@ def run_simulations_all_cut_cards_cuda(
   time_start = time.monotonic()
   device = cuda.get_current_device()
   rules = normalize_rules_for_probabilistic_analysis(rules)
-  d_split_table, d_action_table = create_tables_cuda(rules, strategy, quiet)
+  d_split_table, d_action_table = create_tables_cuda(rules, strategy, quiet=quiet)
   rules_split_to_num_hands = get_int_split_to_num_hands(rules)
   shoe_size = int(rules.num_decks) * DECK_SIZE
   assert shoe_size <= CUDA_MAX_SHOE_SIZE
@@ -4124,7 +4128,7 @@ if USE_CUDA:
 # and compare with the
 # [WizardOfOdds hand calculator](https://wizardofodds.com/games/blackjack/hand-calculator/)
 # and the
-# [bjstrat.net hand calculator](http://www.bjstrat.net/cgi-bin/cdca.cgi).
+# [bjstrat.net hand calculator](https://www.bjstrat.net/cgi-bin/cdca.cgi).
 
 
 # %%
@@ -4276,11 +4280,11 @@ class BjstratHandCalculator(HandCalculator):
   def _uncached_query(self, player_cards: Cards, rules: Rules) -> str:
     """Return response from https://www.bjstrat.net/cgi-bin/cdca.cgi ."""
     total, soft = combine_cards(player_cards)
-    n = NUM_SUITS * int(rules.num_decks)
     softness = 'soft' if soft else 'hard'
     url = 'https://www.bjstrat.net/cgi-bin/cdca.cgi'
 
     try:
+      n = NUM_SUITS * int(rules.num_decks)
       split_aces_to_num_hands = min(int(rules.split_to_num_hands), 4 if rules.resplit_aces else 2)
       data_dict = dict[str, Any](
           txtDecks=int(rules.num_decks),
@@ -5025,7 +5029,7 @@ class BjaHouseEdgeCalculator(HouseEdgeCalculator):
 
 # %%
 class WikipediaHouseEdgeCalculator(HouseEdgeCalculator):
-  """House edge (None if unknown) from those listed in https://en.wikipedia.org/wiki/Blackjack/."""
+  """House edge (None if unknown) from those listed in https://en.wikipedia.org/wiki/Blackjack ."""
 
   def __init__(self) -> None:
     super().__init__('wiki')
@@ -5499,7 +5503,7 @@ if EFFORT >= 2:
 #
 # Compared to
 # [BeatingBonuses](https://www.beatingbonuses.com/bjstrategy.php?decks2=1&h17=stand&doubleon2=any2cards&das2=on&peek2=on&surrender2=late&charlie2=no&resplits2=4&bj=3to2&opt2=1&btn2=Generate+Strategy),
-# there is just one differences:
+# there is just one difference:
 # - For hard 16 vs 10, we have `Uh` and they have `Us`.
 #
 # The table in
@@ -5510,7 +5514,7 @@ if EFFORT >= 2:
 # %%
 if EFFORT >= 1:
   analyze_hand(((6, 10), 10), Rules(num_decks=1, hit_soft17=False))
-# As a fallback action (if SURRENDER is unavailable),  BeatingBonuses suggests STAND, which seems
+# As a fallback action (if SURRENDER is unavailable), BeatingBonuses suggests STAND, which seems
 # incorrect because HIT has a much higher reward than STAND according to all calculators.
 
 # hand=((6, 10), 10)  EFFORT=3
@@ -5522,7 +5526,7 @@ if EFFORT >= 1:
 # %%
 if EFFORT >= 1:
   analyze_hand(((7, 7), 10), Rules(num_decks=1, hit_soft17=False))
-# As a fallback action (if SURRENDER is unavailable),  mBitCasino suggests HIT, which seems
+# As a fallback action (if SURRENDER is unavailable), mBitCasino suggests HIT, which seems
 # incorrect because STAND has a higher reward than HIT according to all calculators.
 
 # hand=((7, 7), 10)  EFFORT=3
@@ -5563,7 +5567,7 @@ def show_and_check_obo_false() -> None:
   show_basic_strategy_tables(rules)
   for name, table in basic_strategy_tables(rules).items():
     code = np.array2string(table[:, -2:]).lower()
-    # Verify that there is no DOUBLE action against dealer1 1 or 10.
+    # Verify that there is no DOUBLE action against dealer upcard 1 or 10.
     assert 'd' not in code
     # There is only one SPLIT action (two aces against dealer 10):
     check_eq(code.count('p'), {'hard': 0, 'soft': 0, 'pair': 1}[name])
@@ -5700,7 +5704,7 @@ if EFFORT >= 2:
 # %%
 # Quick sanity check on Monte Carlo simulation.
 _value, _value_sdv = monte_carlo_hand(((2, 6), 6), Rules(num_decks=1), Strategy(), 10_000_000)
-print(_value, _value_sdv)  # 0.11084581203965786 1.9424304195073017  EFFORT=0,1,2,3
+print(_value, _value_sdv)  # 0.11128701049546326 1.9423458833952778  EFFORT=0,1
 assert 0.10 < _value < 0.12
 assert 1.94 < _value_sdv < 1.95
 
@@ -5806,7 +5810,7 @@ if 0:
 # Found num_differences=19
 
 # %% [markdown]
-# <a name="analyze-hand-action-wrt-attention"><a>
+# <a name="analyze-hand-action-wrt-attention"></a>
 # - Here we see how the hand reward increases monotonically with the increase in `Attention`
 #   of the player strategy:
 
@@ -5912,7 +5916,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 )
 
 # Wonderful: for a 2-deck shoe, with EFFORT>=2, there are no differences in optimal
-# full-composition-strategy actions wrt to Wizard and Bjstrat.
+# full-composition-strategy actions wrt Wizard and Bjstrat.
 # (For EFFORT=1, there are about 3 differences.)
 
 # %%
@@ -5967,7 +5971,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # This time, we consider the case of 1 deck with "dealer stand on soft 17".
 # Wonderful: with EFFORT>=2, there are *no* differences in optimal composition-dependent actions
-# wrt to both Wizard and Bjstrat.
+# wrt both Wizard and Bjstrat.
 
 # (With EFFORT=1 there are about 4 differences.)
 
@@ -6130,7 +6134,7 @@ if EFFORT >= 1:
 # Wikipedia: "Most blackjack games have a house edge of between 0.5% and 1%".
 
 # %% [markdown]
-# <a name="analyze-edge-wrt-attention"><a>
+# <a name="analyze-edge-wrt-attention"></a>
 # - We first see how the house edge decreases monotonically with increased `Attention` in the
 #   player strategy:
 
@@ -6164,7 +6168,7 @@ analyze_edge_wrt_attention(Rules(num_decks=1, cut_card=0))
 # - Caesars Palace Casino; 0.26%; 6 decks; cut 1.3; "s17,ds,ls,rsa"
 # - Cosmopolitan Casino;   0.28%; 8 decks; cut 0.5; "s17,ds,ls,rsa":
 #
-# The results computed here (0.29% and 0.306%) are higher,
+# The results computed here (0.289% and 0.305%) are higher,
 # but are close to the results of WizardOfOdds:
 
 # %%
@@ -6181,7 +6185,7 @@ report_edge(Rules(num_decks=8, hit_soft17=False, resplit_aces=True, cut_card=390
 # A larger house edge is:
 # - Mirage Casino; 0.49%; 8 decks; "h17,ds,ls,rsa":
 #
-# The result computed here (0.504%) is a tiny bit higher but again agrees with the
+# The result computed here (0.505%) is a tiny bit higher but again agrees with the
 # results of WizardOfOdds:
 
 # %%
@@ -6264,7 +6268,7 @@ report_edge(PITCH_BLACKJACK_DOUBLE_DECK_RULES)
 # Here we consider the best rules and strategies (i.e., most favorable to the player),
 # as well as the worst ones.
 #
-# In the rosiest scenario (not offered in any casino), the player would gain 0.2% of
+# In the rosiest scenario (not offered in any casino), the player would gain about 0.4% of
 # the initial bet, on average.
 #
 # With the most house-friendly rules and restricting the player actions to just
@@ -6275,17 +6279,16 @@ report_edge(PITCH_BLACKJACK_DOUBLE_DECK_RULES)
 
 # %%
 report_edge(BEST_RULES, BEST_STRATEGY)
-# Rules(num_decks=1, split_to_num_hands=inf, resplit_aces=True, hit_split_aces=True,
-#   double_split_aces=True, cut_card=0)
+# Rules(num_decks=1, hit_soft17=False, split_to_num_hands=inf, resplit_aces=True,
+#   hit_split_aces=True, double_split_aces=True, cut_card=0)
 #   Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS) EFFORT=3:
-#  house edge: prob:-0.197% (97s)  sim~-0.192% ±0.001%(34s)
+#  house edge: prob:-0.373% (100s) sim~-0.368% ±0.001%(110s)
 
 # %%
 report_edge(WORST_RULES, WORST_STRATEGY)
-# Rules(num_decks=inf, blackjack_payout=1, hit_soft17=False, obo=False, late_surrender=False,
-#   double_min_total=10, double_after_split=False, split_to_num_hands=2)
-#   Strategy(first_actions={STAND,HIT}) EFFORT=3:
-#  house edge: prob: 4.676% (1s)   sim: 4.676% ±0.001%(6s)
+# Rules(num_decks=inf, blackjack_payout=1, obo=False, late_surrender=False, double_min_total=10,
+#   double_after_split=False, split_to_num_hands=2) Strategy(first_actions={STAND,HIT}) EFFORT=3:
+#  house edge: prob: 4.898% (1s)   sim: 4.897% ±0.001%(75s)
 
 # %% [markdown]
 # ### Number of decks
@@ -6460,7 +6463,7 @@ def analyze_rule_variations(rules: Rules, pattern: str = '.') -> None:
   run('dealer stands soft 17', hit_soft17=False, expected='-0.2')
 
   # "The no hole card rule adds approximately 0.11% to the house edge."
-  # (Adding late_surrender=False here increases change in % from 0.10 to 0.20.)
+  # (Also setting late_surrender=False makes the combined change +0.20% rather than +0.10%.)
   run('no hole card (no OBO)', obo=False, expected='+0.11')
 
   # "Reno rule increases the house edge by around 0.1%"
@@ -6536,7 +6539,7 @@ analyze_rule_variations(Rules(split_to_num_hands=2), pattern='no double after sp
 #  no double after split         +0.124       +0.123       +0.124        +0.12
 
 # %% [markdown]
-# It looks like the Wikipedia house edges changes for "resplit aces" and "hit after split aces"
+# It looks like the Wikipedia house-edge changes for "resplit aces" and "hit after split aces"
 # may have been obtained for a single deck:
 
 # %%
@@ -6615,7 +6618,8 @@ if EFFORT >= 2:
 # %%
 if EFFORT >= 2:
   explore_rule_variations(Rules(num_decks=1, cut_card=24))
-# Observations: late_surrender=False introduces the greatest divergence.
+# Observations: the variations with late_surrender=False (alone or with obo=False) introduce the
+# greatest divergence.
 
 # original                : prob~ 0.013% (12s)  sim: 0.123% ±0.001%(9s)    wiz: 0.121%
 # hit_soft17=False        : prob~-0.161% (12s)  sim:-0.055% ±0.001%(9s)    wiz:-0.053%
@@ -6687,7 +6691,7 @@ if 0:
       Rules(num_decks=8, cut_card=0),
       Strategy(attention=Attention.HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS),
   )
-# There are no discernible changes wrt to the cell above.
+# There are no discernible changes wrt the cell above.
 
 # %% [markdown]
 # - A shoe containing only a single deck amplifies the effects of rule variations:
@@ -6698,7 +6702,7 @@ if EFFORT >= 2:
 
 # Our probabilistic results are a near-perfect match to both the WizardOfOdds and the Bjstrat
 # results, except for `hit_split_aces=True` where the Wizard result differs (as also observed
-# above for num_decks=8.)
+# above for num_decks=8).
 
 # (Again, our simulation results are less accurate here because the simulation strategy is
 # limited to `Attention.INITIAL_CARDS_AND_TOTAL`.)
@@ -6715,7 +6719,7 @@ if EFFORT >= 2:
 # blackjack_payout=1.2    : prob: 1.365% (22s)  sim~ 1.369% ±0.001%(66s)   wiz: 1.365%  bjstrat: 1.365%
 
 # %% [markdown]
-# - If we further broaden the strategy attention to `HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLIT`,
+# - If we further broaden the strategy attention to `HAND_AND_INITIAL_CARDS_IN_PRIOR_SPLITS`,
 #   the results are largely unchanged, suggesting that this additional effort in strategy is not
 #   worthwhile:
 
@@ -6730,7 +6734,7 @@ if 0:
 
 # %% [markdown]
 # - Next we try to reproduce the Wikipedia results on the progressively decreasing benefits
-# of composition-dependent strategy as function of an increasing number of decks.
+# of composition-dependent strategy as a function of an increasing number of decks.
 
 
 # %%
@@ -6780,8 +6784,8 @@ def analyze_composition_dependent_strategy_with_number_of_decks(rules: Rules) ->
 # "Using a composition-dependent strategy rather than basic strategy in a single deck game reduces
 # the house edge by 4 in 10,000 (0.04%), which falls to 3 in 100,000 (0.003%) for a six-deck game."
 #
-# * Our results (0.039% and 0.002%) are close to those numbers
-# in the case of continuous reshuffling (`cut_card=0`):
+# * Our probabilistic (0.043% and 0.003%) and simulated (0.039% and 0.002%) results are close to
+#   those numbers in the case of continuous reshuffling (`cut_card=0`):
 
 # %%
 analyze_composition_dependent_strategy_with_number_of_decks(Rules(cut_card=0))
@@ -6833,7 +6837,7 @@ if EFFORT >= 1:
 # %% [markdown]
 # * When the dealer stands on a soft total of 17, the numbers are close to
 # the Wikipedia values;
-# We obtain a benefit of 0.040% on 1 deck and 0.0025% on 6 decks:
+# we obtain a benefit of 0.040% on 1 deck and 0.0025% on 6 decks:
 
 # %%
 if EFFORT >= 2:
@@ -6920,7 +6924,7 @@ cut_card_analysis_results: dict[int, CutCardAnalysisResult] = {}
 
 # %%
 def get_cut_card_analysis(rules: Rules, strategy: Strategy = Strategy()) -> CutCardAnalysisResult:
-  """Run shoe simulations to compute reward as function of cut-card position."""
+  """Run shoe simulations to compute reward as a function of cut-card position."""
   num_decks = int(rules.num_decks)
   path = pathlib.Path(f'data/cut_card_analysis_for_{num_decks}_decks.pickle')
 
@@ -6962,7 +6966,7 @@ def plot_cut_card_analysis_result(
   dots = {k: v for k, v in graph.items() if k in [1, 2, 3, 4, max_cut_card, cut_card]}
   ax.plot(*zip(*tuple(dots.items()), strict=True), 'o')
   ax.set_title(
-      'House edge as function of cut-card depth'
+      'House edge as a function of cut-card depth'
       f' for {num_decks} deck{"s" if num_decks != 1 else ""}'
   )
   ax.set(
@@ -7093,7 +7097,7 @@ def compute_and_plot_cut_card_analysis_results() -> None:
 #
 # For a single deck, the dampened oscillation is still significant enough
 # that the precise position of the cut-card matters.
-# As an example, we notice that the "Wizards of Odds" results align most closely with our
+# As an example, we notice that the WizardOfOdds results align most closely with our
 # simulation at `cut_card=24` rather than the default `cut_card=26` for a single deck.
 #
 # For **two decks or more**, the oscillations are still evident near the front
@@ -7110,7 +7114,7 @@ def compute_and_plot_cut_card_analysis_results() -> None:
 # %%
 compute_and_plot_cut_card_analysis_results()
 # EFFORT=3: 3900 s
-# EFFORT=4: ~?15 h
+# EFFORT=4: ~15 h (estimated).
 
 
 # %%
@@ -7236,7 +7240,7 @@ hh.analyze_functools_caches(globals())
 def show_added_global_variables_sorted_by_type() -> None:
   """Report any new global variables introduced by this notebook."""
   ok_typenames = (
-      'ABCMeta EnumMeta EnumType type function partial'
+      'ABCMeta EnumMeta EnumType type function partial Union UnionType'
       ' _lru_cache_wrapper CPUDispatcher CUDADispatcher'
   ).split()
   for typename, name in sorted((type(value).__name__, name) for name, value in globals().items()):
@@ -7263,7 +7267,7 @@ hh.show_notebook_cell_top_times()
 #  SageMaker: ~135 s; max 16 GB mem; 4x multiprocessing; jupyter lab; must login.
 #     Kaggle: ~740 s; max 16 GB mem; 8x multiprocessing; must login.
 #   MyBinder: ~480 s; max 2 GB mem; copies GitHub; slow start.
-#   DeepNote: ~550 s; max 5 GB mem; table of contents; copies GitHub; must login.
+#   Deepnote: ~550 s; max 5 GB mem; table of contents; copies GitHub; must login.
 # EFFORT=2: ~830 s (+ ~130 s cut_card_analysis_results) (10.5 GiB) (~2700 s without USE_CUDA)
 #      Colab: ~2100 s; SageMaker ~3000 s.
 # EFFORT=3: ~16_500 s (~4.5 hrs) (incl. 4000 s cut_card_analysis_results) (18.6 GiB)
