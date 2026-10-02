@@ -4690,15 +4690,15 @@ if 0:
 
 # hand=((5, 10), 10)  EFFORT=3
 # Best_actions: bs=HIT id=SURRENDER cd=SURRENDER wiz=SURRENDER bjstrat=SURRENDER
-#  STAND   bs=-0.538433 id=-0.538433 sim=-0.538440±0.000056   cd=-0.538433  wiz:-0.538433  bjstrat:-0.538400
-#  HIT     bs=-0.502225 id=-0.501091 sim=-0.501146±0.000056   cd=-0.501091  wiz:-0.501091  bjstrat:-0.501100
-#  DOUBLE  bs=-1.002183 id=-1.002183 sim=-1.002312±0.000110   cd=-1.002183  wiz:-1.002183  bjstrat:-1.002000
+#  STAND   bs=-0.538433 id=-0.538433 sim=-0.538432±0.000018   cd=-0.538433  wiz:-0.538433  bjstrat:-0.538400
+#  HIT     bs=-0.502225 id=-0.501091 sim=-0.501093±0.000018   cd=-0.501091  wiz:-0.501091  bjstrat:-0.501100
+#  DOUBLE  bs=-1.002183 id=-1.002183 sim=-1.002187±0.000035   cd=-1.002183  wiz:-1.002183  bjstrat:-1.002000
 #
 # hand=((7, 9), 1)  EFFORT=3
 # Best_actions: bs=SURRENDER id=HIT cd=HIT wiz=HIT bjstrat=HIT
-#  STAND   bs=-0.643247 id=-0.643247 sim=-0.643260±0.000061   cd=-0.643247  wiz:-0.643247  bjstrat:-0.643200
-#  HIT     bs=-0.495493 id=-0.495493 sim=-0.495524±0.000068   cd=-0.495493  wiz:-0.495493  bjstrat:-0.495500
-#  DOUBLE  bs=-0.990987 id=-0.990987 sim=-0.991046±0.000128   cd=-0.990987  wiz:-0.990987  bjstrat:-0.991000
+#  STAND   bs=-0.643247 id=-0.643247 sim=-0.643241±0.000019   cd=-0.643247  wiz:-0.643247  bjstrat:-0.643200
+#  HIT     bs=-0.495493 id=-0.495493 sim=-0.495499±0.000021   cd=-0.495493  wiz:-0.495493  bjstrat:-0.495500
+#  DOUBLE  bs=-0.990987 id=-0.990987 sim=-0.991003±0.000041   cd=-0.990987  wiz:-0.990987  bjstrat:-0.991000
 
 
 # %%
@@ -5493,10 +5493,10 @@ analyze_hand(((9, 9), 1), Rules(num_decks=1))
 
 # hand=((9, 9), 1)  EFFORT=3
 # Best_actions: bs=SPLIT id=SPLIT cd=SPLIT wiz=STAND bjstrat=SPLIT
-#  STAND   id=-0.186130 sim=-0.186130±0.000024   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
-#  HIT     id=-0.637010 sim=-0.637020±0.000019   cd=-0.637010  wiz:-0.637010  bjstrat:-0.637000
-#  DOUBLE  id=-1.274020 sim=-1.274041±0.000037   cd=-1.274020  wiz:-1.274020  bjstrat:-1.274000
-#  SPLIT   id=-0.183912 sim=-0.183912±0.000039   cd=-0.183912  wiz:-0.189759* bjstrat:-0.183900
+#  STAND   id=-0.186130 sim=-0.186120±0.000024   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
+#  HIT     id=-0.637010 sim=-0.637004±0.000019   cd=-0.637010  wiz:-0.637010  bjstrat:-0.637000
+#  DOUBLE  id=-1.274020 sim=-1.274012±0.000037   cd=-1.274020  wiz:-1.274020  bjstrat:-1.274000
+#  SPLIT   id=-0.183912 sim=-0.183951±0.000044   cd=-0.183912  wiz:-0.189759* bjstrat:-0.183900
 
 # We find SPLIT to be optimal when using basic strategy.  The rewards computed using the
 # initial-dependent probabilistic analysis (id) and Monte Carlo simulation (sim) are close to each
@@ -5565,9 +5565,9 @@ if EFFORT >= 1:
 
 # hand=((6, 10), 10)  EFFORT=3
 # Best_actions: bs=SURRENDER id=SURRENDER cd=SURRENDER wiz=SURRENDER bjstrat=SURRENDER
-#  STAND   id=-0.542952 sim=-0.542946±0.000018   cd=-0.542952  wiz:-0.542952  bjstrat:-0.543000
-#  HIT     id=-0.506929 sim=-0.506924±0.000017   cd=-0.506929  wiz:-0.506929  bjstrat:-0.506900
-#  DOUBLE  id=-1.013858 sim=-1.013850±0.000034   cd=-1.013858  wiz:-1.013858  bjstrat:-1.014000
+#  STAND   id=-0.542952 sim=-0.542949±0.000018   cd=-0.542952  wiz:-0.542952  bjstrat:-0.543000
+#  HIT     id=-0.506929 sim=-0.506931±0.000017   cd=-0.506929  wiz:-0.506929  bjstrat:-0.506900
+#  DOUBLE  id=-1.013858 sim=-1.013863±0.000034   cd=-1.013858  wiz:-1.013858  bjstrat:-1.014000
 
 # %%
 if EFFORT >= 1:
@@ -5577,10 +5577,10 @@ if EFFORT >= 1:
 
 # hand=((7, 7), 10)  EFFORT=3
 # Best_actions: bs=SURRENDER id=SURRENDER cd=SURRENDER wiz=SURRENDER bjstrat=SURRENDER
-#  STAND   id=-0.509739 sim=-0.509738±0.000018   cd=-0.509739  wiz:-0.509739  bjstrat:-0.509700
-#  HIT     id=-0.514818 sim=-0.514817±0.000017   cd=-0.514818  wiz:-0.514818  bjstrat:-0.514800
-#  DOUBLE  id=-1.034724 sim=-1.034721±0.000034   cd=-1.034724  wiz:-1.034724  bjstrat:-1.035000
-#  SPLIT   id=-0.622662 sim=-0.622663±0.000034   cd=-0.619716  wiz:-0.620390* bjstrat:-0.619800
+#  STAND   id=-0.509739 sim=-0.509743±0.000018   cd=-0.509739  wiz:-0.509739  bjstrat:-0.509700
+#  HIT     id=-0.514818 sim=-0.514820±0.000017   cd=-0.514818  wiz:-0.514818  bjstrat:-0.514800
+#  DOUBLE  id=-1.034724 sim=-1.034740±0.000034   cd=-1.034724  wiz:-1.034724  bjstrat:-1.035000
+#  SPLIT   id=-0.622662 sim=-0.622662±0.000036   cd=-0.619716  wiz:-0.620390* bjstrat:-0.619800
 
 # %% [markdown]
 # ### No dealer peek for bj
@@ -5719,9 +5719,9 @@ if EFFORT >= 2:
 
 # hand=((7, 8), 10)  EFFORT=3
 # Best_actions: bs=SURRENDER id=HIT cd=HIT wiz=HIT bjstrat=HIT
-#  STAND   id=-0.536220 sim=-0.536210±0.000018   cd=-0.536220  wiz:-0.536220  bjstrat:-0.536200
-#  HIT     id=-0.499763 sim=-0.499777±0.000018   cd=-0.499763  wiz:-0.499763  bjstrat:-0.499800
-#  DOUBLE  id=-0.999525 sim=-0.999555±0.000035   cd=-0.999525  wiz:-0.999525  bjstrat:-0.999500
+#  STAND   id=-0.536220 sim=-0.536239±0.000018   cd=-0.536220  wiz:-0.536220  bjstrat:-0.536200
+#  HIT     id=-0.499763 sim=-0.499769±0.000018   cd=-0.499763  wiz:-0.499763  bjstrat:-0.499800
+#  DOUBLE  id=-0.999525 sim=-0.999536±0.000035   cd=-0.999525  wiz:-0.999525  bjstrat:-0.999500
 
 # %%
 if EFFORT >= 2:
@@ -5731,9 +5731,9 @@ if EFFORT >= 2:
 
 # hand=((2, 10), 4)  EFFORT=3
 # Best_actions: bs=STAND id=HIT cd=HIT wiz=HIT bjstrat=HIT
-#  STAND   id=-0.206125 sim=-0.206126±0.000020   cd=-0.206125  wiz:-0.206125  bjstrat:-0.206100
-#  HIT     id=-0.204205 sim=-0.204209±0.000019   cd=-0.204205  wiz:-0.204205  bjstrat:-0.204200
-#  DOUBLE  id=-0.408411 sim=-0.408419±0.000038   cd=-0.408411  wiz:-0.408411  bjstrat:-0.408400
+#  STAND   id=-0.206125 sim=-0.206128±0.000020   cd=-0.206125  wiz:-0.206125  bjstrat:-0.206100
+#  HIT     id=-0.204205 sim=-0.204210±0.000019   cd=-0.204205  wiz:-0.204205  bjstrat:-0.204200
+#  DOUBLE  id=-0.408411 sim=-0.408420±0.000038   cd=-0.408411  wiz:-0.408411  bjstrat:-0.408400
 
 # %%
 if EFFORT >= 2:
@@ -5743,9 +5743,9 @@ if EFFORT >= 2:
 
 # hand=((2, 6), 6)  EFFORT=3
 # Best_actions: bs=DOUBLE id=HIT cd=HIT wiz=HIT bjstrat=HIT
-#  STAND   id=-0.108450 sim=-0.108465±0.000020   cd=-0.108450  wiz:-0.108450  bjstrat:-0.108500
-#  HIT     id= 0.119677 sim= 0.119687±0.000019   cd= 0.119677  wiz: 0.119677  bjstrat: 0.119700
-#  DOUBLE  id= 0.111237 sim= 0.111255±0.000039   cd= 0.111237  wiz: 0.111237  bjstrat: 0.111200
+#  STAND   id=-0.108450 sim=-0.108450±0.000020   cd=-0.108450  wiz:-0.108450  bjstrat:-0.108500
+#  HIT     id= 0.119677 sim= 0.119683±0.000019   cd= 0.119677  wiz: 0.119677  bjstrat: 0.119700
+#  DOUBLE  id= 0.111237 sim= 0.111253±0.000039   cd= 0.111237  wiz: 0.111237  bjstrat: 0.111200
 
 # %%
 # Quick sanity check on Monte Carlo simulation.
@@ -5981,7 +5981,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 # This seems to be due to the imprecise reward computation for SPLIT by Wizard.
 
 # Our SPLIT reward -0.1839 is higher than Wizard -0.1898 but equal to Bjstrat.
-# The sim=-0.1839±0.0001 in the cell below provides additional support that Bjstrat and our cd
+# The sim=-0.1840±0.0001 in the cell below provides additional support that Bjstrat and our cd
 # are likely correct.  (Bjstrat shows SPL1=-0.1860 SPL2=-0.1841 SPL3=-0.1839).
 
 # (With EFFORT=1 there are about 6 differences.)
@@ -5994,10 +5994,10 @@ analyze_hand(((9, 9), 1), Rules(num_decks=1))
 
 # hand=((9, 9), 1)  EFFORT=3
 # Best_actions: bs=SPLIT id=SPLIT cd=SPLIT wiz=STAND bjstrat=SPLIT
-#  STAND   id=-0.186130 sim=-0.186130±0.000024   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
-#  HIT     id=-0.637010 sim=-0.637020±0.000019   cd=-0.637010  wiz:-0.637010  bjstrat:-0.637000
-#  DOUBLE  id=-1.274020 sim=-1.274041±0.000037   cd=-1.274020  wiz:-1.274020  bjstrat:-1.274000
-#  SPLIT   id=-0.183912 sim=-0.183912±0.000039   cd=-0.183912  wiz:-0.189759* bjstrat:-0.183900
+#  STAND   id=-0.186130 sim=-0.186120±0.000024   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
+#  HIT     id=-0.637010 sim=-0.637004±0.000019   cd=-0.637010  wiz:-0.637010  bjstrat:-0.637000
+#  DOUBLE  id=-1.274020 sim=-1.274012±0.000037   cd=-1.274020  wiz:-1.274020  bjstrat:-1.274000
+#  SPLIT   id=-0.183912 sim=-0.183951±0.000044   cd=-0.183912  wiz:-0.189759* bjstrat:-0.183900
 
 # %%
 if 0:  # ~9 min.
@@ -6040,24 +6040,24 @@ if EFFORT >= 1:
 
 # hand=((10, 10), 9)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
-#  STAND   id= 0.743970 sim= 0.743961±0.000011   cd= 0.743970  wiz: 0.743970  bjstrat: 0.744000
-#  HIT     id=-0.842055 sim=-0.842062±0.000011   cd=-0.842055  wiz:-0.842055  bjstrat:-0.842100
-#  DOUBLE  id=-1.684111 sim=-1.684124±0.000021   cd=-1.684111  wiz:-1.684111  bjstrat:-1.684000
-#  SPLIT   id=-0.255864 sim=-0.255815±0.000033   cd=-0.255864  wiz:-0.183090* bjstrat:-0.255800
+#  STAND   id= 0.743970 sim= 0.743970±0.000011   cd= 0.743970  wiz: 0.743970  bjstrat: 0.744000
+#  HIT     id=-0.842055 sim=-0.842055±0.000011   cd=-0.842055  wiz:-0.842055  bjstrat:-0.842100
+#  DOUBLE  id=-1.684111 sim=-1.684110±0.000021   cd=-1.684111  wiz:-1.684111  bjstrat:-1.684000
+#  SPLIT   id=-0.255864 sim=-0.255809±0.000037   cd=-0.255864  wiz:-0.183090* bjstrat:-0.255800
 
 # hand=((10, 10), 10)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
-#  STAND   id= 0.583154 sim= 0.583154±0.000015   cd= 0.583154  wiz: 0.583154  bjstrat: 0.583200
-#  HIT     id=-0.836969 sim=-0.836976±0.000011   cd=-0.836969  wiz:-0.836969  bjstrat:-0.837000
-#  DOUBLE  id=-1.673938 sim=-1.673953±0.000023   cd=-1.673938  wiz:-1.673938  bjstrat:-1.674000
-#  SPLIT   id=-0.315639 sim=-0.316438±0.000036*  cd=-0.314259  wiz:-0.262691* bjstrat:-0.315300*
+#  STAND   id= 0.583154 sim= 0.583155±0.000015   cd= 0.583154  wiz: 0.583154  bjstrat: 0.583200
+#  HIT     id=-0.836969 sim=-0.836968±0.000011   cd=-0.836969  wiz:-0.836969  bjstrat:-0.837000
+#  DOUBLE  id=-1.673938 sim=-1.673938±0.000023   cd=-1.673938  wiz:-1.673938  bjstrat:-1.674000
+#  SPLIT   id=-0.315639 sim=-0.316427±0.000040*  cd=-0.314259  wiz:-0.262691* bjstrat:-0.315300*
 
 # hand=((10, 10), 1)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
 #  STAND   id= 0.593596 sim= 0.593602±0.000025   cd= 0.593596  wiz: 0.593596  bjstrat: 0.593600
-#  HIT     id=-0.884336 sim=-0.884345±0.000011   cd=-0.884336  wiz:-0.884336  bjstrat:-0.884300
-#  DOUBLE  id=-1.768673 sim=-1.768693±0.000024   cd=-1.768673  wiz:-1.768673  bjstrat:-1.769000
-#  SPLIT   id=-0.497143 sim=-0.495786±0.000038*  cd=-0.497141  wiz:-0.445244* bjstrat:-0.495800*
+#  HIT     id=-0.884336 sim=-0.884340±0.000011   cd=-0.884336  wiz:-0.884336  bjstrat:-0.884300
+#  DOUBLE  id=-1.768673 sim=-1.768684±0.000024   cd=-1.768673  wiz:-1.768673  bjstrat:-1.769000
+#  SPLIT   id=-0.497143 sim=-0.495803±0.000044*  cd=-0.497141  wiz:-0.445244* bjstrat:-0.495800*
 
 # %%
 if 0:  # ~9 min.
@@ -6089,25 +6089,25 @@ if EFFORT >= 1:
 # The paired tens against dealer 10 is particularly challenging to compute accurately.
 
 # hand=((1, 1), 10)  EFFORT=3
-#  SPLIT   id= 0.194251 sim= 0.194239±0.000030   cd= 0.194251  wiz: 0.194251  bjstrat: 0.194300
+#  SPLIT   id= 0.194251 sim= 0.194273±0.000032   cd= 0.194251  wiz: 0.194251  bjstrat: 0.194300
 # hand=((2, 2), 10)  EFFORT=3
-#  SPLIT   id=-0.466571 sim=-0.466584±0.000034   cd=-0.466378  wiz:-0.467223* bjstrat:-0.466400
+#  SPLIT   id=-0.466571 sim=-0.466581±0.000035   cd=-0.466378  wiz:-0.467223* bjstrat:-0.466400
 # hand=((3, 3), 10)  EFFORT=3
-#  SPLIT   id=-0.506204 sim=-0.506210±0.000033   cd=-0.505608  wiz:-0.506252* bjstrat:-0.505600
+#  SPLIT   id=-0.506204 sim=-0.506224±0.000035   cd=-0.505608  wiz:-0.506252* bjstrat:-0.505600
 # hand=((4, 4), 10)  EFFORT=3
-#  SPLIT   id=-0.586839 sim=-0.586846±0.000033   cd=-0.586720  wiz:-0.587695* bjstrat:-0.586700
+#  SPLIT   id=-0.586839 sim=-0.586852±0.000034   cd=-0.586720  wiz:-0.587695* bjstrat:-0.586700
 # hand=((5, 5), 10)  EFFORT=3
-#  SPLIT   id=-0.723690 sim=-0.723660±0.000033   cd=-0.723160  wiz:-0.724627* bjstrat:-0.723400*
+#  SPLIT   id=-0.723690 sim=-0.723675±0.000034   cd=-0.723160  wiz:-0.724627* bjstrat:-0.723400*
 # hand=((6, 6), 10)  EFFORT=3
-#  SPLIT   id=-0.659949 sim=-0.659965±0.000032   cd=-0.658869  wiz:-0.659371* bjstrat:-0.659300*
+#  SPLIT   id=-0.659949 sim=-0.659941±0.000034   cd=-0.658869  wiz:-0.659371* bjstrat:-0.659300*
 # hand=((7, 7), 10)  EFFORT=3
-#  SPLIT   id=-0.622662 sim=-0.622663±0.000034   cd=-0.619716  wiz:-0.620390* bjstrat:-0.619800
+#  SPLIT   id=-0.622662 sim=-0.622662±0.000036   cd=-0.619716  wiz:-0.620390* bjstrat:-0.619800
 # hand=((8, 8), 10)  EFFORT=3
-#  SPLIT   id=-0.446966 sim=-0.446985±0.000036   cd=-0.446830  wiz:-0.448160* bjstrat:-0.446900
+#  SPLIT   id=-0.446966 sim=-0.446956±0.000038   cd=-0.446830  wiz:-0.448160* bjstrat:-0.446900
 # hand=((9, 9), 10)  EFFORT=3
-#  SPLIT   id=-0.271944 sim=-0.271945±0.000035   cd=-0.271940  wiz:-0.274520* bjstrat:-0.271900
+#  SPLIT   id=-0.271944 sim=-0.271922±0.000038   cd=-0.271940  wiz:-0.274520* bjstrat:-0.271900
 # hand=((10, 10), 10)  EFFORT=3
-#  SPLIT   id=-0.315639 sim=-0.316438±0.000036*  cd=-0.314259  wiz:-0.262691* bjstrat:-0.315300*
+#  SPLIT   id=-0.315639 sim=-0.316427±0.000040*  cd=-0.314259  wiz:-0.262691* bjstrat:-0.315300*
 
 # %% [markdown]
 # - Here is an experiment where the player already has 3 cards:
@@ -6119,7 +6119,7 @@ if EFFORT >= 1:
 # hand=((2, 3, 6), 9)  EFFORT=3
 # Best_actions: bs=HIT id=HIT cd=HIT wiz=HIT bjstrat=HIT
 #  STAND   id=-0.541969  cd=-0.541969  wiz:-0.541969  bjstrat:-0.542000
-#  HIT     id= 0.167507 sim= 0.167508±0.000019   cd= 0.167563  wiz: 0.167563  bjstrat: 0.167600
+#  HIT     id= 0.167507 sim= 0.167507±0.000019   cd= 0.167563  wiz: 0.167563  bjstrat: 0.167600
 
 # %% [markdown]
 # - We analyze what happens if the player does not STAND on blackjack (if that is even allowed):
@@ -6131,8 +6131,8 @@ if EFFORT >= 1:
 # hand=((1, 10), 9)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
 #  STAND   id= 1.500000 sim= 1.500000±0.000000   cd= 1.500000  wiz: 1.500000  bjstrat: 1.500000
-#  HIT     id= 0.148864 sim= 0.148852±0.000019   cd= 0.148864  wiz: 0.148864  bjstrat: 0.148900
-#  DOUBLE  id= 0.216490 sim= 0.216459±0.000038   cd= 0.216490  wiz: 0.216490  bjstrat: 0.216500
+#  HIT     id= 0.148864 sim= 0.148869±0.000019   cd= 0.148864  wiz: 0.148864  bjstrat: 0.148900
+#  DOUBLE  id= 0.216490 sim= 0.216502±0.000038   cd= 0.216490  wiz: 0.216490  bjstrat: 0.216500
 
 # %%
 if EFFORT >= 1:
@@ -6140,10 +6140,10 @@ if EFFORT >= 1:
 
 # hand=((1, 10), 1)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
-#  STAND   id= 1.500000 sim= 1.500002±0.000020   cd= 1.500000  wiz: 1.500000  bjstrat: 1.500000
-#  HIT     id= 0.112270 sim= 0.112275±0.000027   cd= 0.112270  wiz: 0.112270  bjstrat: 0.112300
-#  DOUBLE  id= 0.137215 sim= 0.137236±0.000048   cd= 0.137215  wiz: 0.137215  bjstrat: 0.137200
-#  SURREND id=-0.500000 sim=-0.499999±0.000007   cd=-0.500000  wiz:-0.500000  bjstrat:-0.500000
+#  STAND   id= 1.500000 sim= 1.500006±0.000020   cd= 1.500000  wiz: 1.500000  bjstrat: 1.500000
+#  HIT     id= 0.112270 sim= 0.112291±0.000027   cd= 0.112270  wiz: 0.112270  bjstrat: 0.112300
+#  DOUBLE  id= 0.137215 sim= 0.137280±0.000048   cd= 0.137215  wiz: 0.137215  bjstrat: 0.137200
+#  SURREND id=-0.500000 sim=-0.499998±0.000007   cd=-0.500000  wiz:-0.500000  bjstrat:-0.500000
 
 # %%
 if EFFORT >= 1:
@@ -6151,9 +6151,9 @@ if EFFORT >= 1:
 
 # hand=((1, 10), 1)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
-#  STAND   id= 1.040816 sim= 1.040818±0.000014   cd= 1.040816  wiz: 1.040816  bjstrat: 1.041000
-#  HIT     id=-0.228221 sim=-0.228217±0.000019   cd=-0.228221  wiz:-0.228221  bjstrat:-0.228200
-#  DOUBLE  id=-0.517035 sim=-0.517019±0.000037   cd=-0.517035  wiz:-0.517035  bjstrat:-0.517000
+#  STAND   id= 1.040816 sim= 1.040821±0.000014   cd= 1.040816  wiz: 1.040816  bjstrat: 1.041000
+#  HIT     id=-0.228221 sim=-0.228206±0.000019   cd=-0.228221  wiz:-0.228221  bjstrat:-0.228200
+#  DOUBLE  id=-0.517035 sim=-0.516986±0.000037   cd=-0.517035  wiz:-0.517035  bjstrat:-0.517000
 
 # %%
 if EFFORT >= 1:
@@ -6164,10 +6164,10 @@ if EFFORT >= 1:
 
 # hand=((1, 10), 1)  EFFORT=3
 # Best_actions: bs=STAND id=STAND cd=STAND wiz=STAND bjstrat=STAND
-#  STAND   id= 1.040816 sim= 1.040818±0.000014   cd= 1.040816  wiz: 1.040816  bjstrat: 1.041000
-#  HIT     id=-0.228221 sim=-0.228217±0.000019   cd=-0.228221  wiz:-0.228221  bjstrat: 0.077900*
-#  DOUBLE  id=-0.517035 sim=-0.517019±0.000037   cd=-0.517035  wiz:-0.517035  bjstrat:-0.517000
-#  SURREND id=-0.653061 sim=-0.653061±0.000005   cd=-0.653061  wiz:-0.500000* bjstrat:-0.346900*
+#  STAND   id= 1.040816 sim= 1.040821±0.000014   cd= 1.040816  wiz: 1.040816  bjstrat: 1.041000
+#  HIT     id=-0.228221 sim=-0.228206±0.000019   cd=-0.228221  wiz:-0.228221  bjstrat: 0.077900*
+#  DOUBLE  id=-0.517035 sim=-0.516986±0.000037   cd=-0.517035  wiz:-0.517035  bjstrat:-0.517000
+#  SURREND id=-0.653061 sim=-0.653060±0.000005   cd=-0.653061  wiz:-0.500000* bjstrat:-0.346900*
 
 # %% [markdown]
 # ## House edge results
@@ -6231,13 +6231,13 @@ report_edge(Rules(num_decks=8, hit_soft17=False, resplit_aces=True, cut_card=390
 # A larger house edge is:
 # - Mirage Casino; 0.49%; 8 decks; "h17,ds,ls,rsa":
 #
-# The result computed here (0.505%) is a tiny bit higher but again agrees with the
+# The result computed here (0.504%) is a tiny bit higher but again agrees with the
 # results of WizardOfOdds:
 
 # %%
 report_edge(Rules(num_decks=8, hit_soft17=True, resplit_aces=True, cut_card=312))
 # Rules(num_decks=8, resplit_aces=True, cut_card=312) Strategy() EFFORT=3:
-#  house edge: prob~ 0.485% (63s)  sim: 0.505% ±0.001%(20s)   wiz: 0.500%*
+#  house edge: prob~ 0.485% (63s)  sim: 0.504% ±0.001%(20s)   wiz: 0.500%*
 
 # %%
 # https://wizardofodds.com/play/blackjack/ "live dealer casino online rules":
@@ -6306,7 +6306,7 @@ PITCH_BLACKJACK_DOUBLE_DECK_RULES = Rules(
 )
 report_edge(PITCH_BLACKJACK_DOUBLE_DECK_RULES)
 # Rules(num_decks=2, hit_soft17=False, double_after_split=False, cut_card=52) Strategy() EFFORT=3:
-#  house edge: prob~ 0.287% (67s)  sim: 0.356% ±0.001%(9s)    wiz: 0.347%*
+#  house edge: prob~ 0.287% (67s)  sim: 0.355% ±0.001%(9s)    wiz: 0.347%*
 
 # %% [markdown]
 # ### Best and worst house edge
@@ -6365,10 +6365,10 @@ analyze_number_of_decks(Rules(late_surrender=False))
 # For an infinite shoe, the probabilistic and simulated house edges are nearly in agreement.
 
 # Rules(late_surrender=False) EFFORT=3
-# ndecks=1   prob~ 0.044% (31s)  sim: 0.170% ±0.001%(10s)   wiz: 0.159%* wiki: 0.170%
-# ndecks=2   prob~ 0.392% (21s)  sim: 0.458% ±0.001%(8s)    wiz: 0.457%  wiki: 0.460%+
-# ndecks=4   prob~ 0.562% (71s)  sim: 0.596% ±0.001%(12s)   wiz: 0.597%  wiki: 0.600%+
-# ndecks=6   prob~ 0.618% (77s)  sim: 0.641% ±0.001%(15s)   wiz: 0.639%  wiki: 0.640%
+# ndecks=1   prob~ 0.044% (31s)  sim: 0.166% ±0.001%(10s)   wiz: 0.159%* wiki: 0.170%+
+# ndecks=2   prob~ 0.392% (21s)  sim: 0.456% ±0.001%(8s)    wiz: 0.457%  wiki: 0.460%+
+# ndecks=4   prob~ 0.562% (71s)  sim: 0.595% ±0.001%(12s)   wiz: 0.597%  wiki: 0.600%+
+# ndecks=6   prob~ 0.618% (77s)  sim: 0.640% ±0.001%(15s)   wiz: 0.639%  wiki: 0.640%
 # ndecks=8   prob~ 0.646% (40s)  sim: 0.663% ±0.001%(20s)   wiz: 0.661%* wiki: 0.660%+
 # ndecks=20  prob~ 0.697% (55s)  sim: 0.704% ±0.001%(54s)
 # ndecks=inf prob: 0.731% (39s)  sim: 0.731% ±0.001%(8s)
@@ -6379,18 +6379,18 @@ analyze_number_of_decks(Rules(late_surrender=False))
 # %%
 report_edge(Rules(num_decks=1, hit_soft17=False, cut_card=24))
 # Rules(num_decks=1, hit_soft17=False, cut_card=24) Strategy() EFFORT=3:
-#  house edge: prob~-0.161% (38s)  sim:-0.055% ±0.001%(10s)   wiz:-0.053%
+#  house edge: prob~-0.161% (38s)  sim:-0.056% ±0.001%(10s)   wiz:-0.053%*
 
 # %%
 if EFFORT >= 2:
   analyze_number_of_decks(Rules(hit_soft17=False, late_surrender=False))
 # Rules(hit_soft17=False, late_surrender=False) EFFORT=3
-# ndecks=1   prob~-0.144% (11s)  sim:-0.019% ±0.001%(10s)   wiz:-0.031%*
-# ndecks=2   prob~ 0.193% (45s)  sim: 0.257% ±0.001%(7s)    wiz: 0.255%
-# ndecks=4   prob~ 0.353% (55s)  sim: 0.385% ±0.001%(11s)   wiz: 0.387%
+# ndecks=1   prob~-0.144% (11s)  sim:-0.023% ±0.001%(10s)   wiz:-0.031%*
+# ndecks=2   prob~ 0.193% (45s)  sim: 0.255% ±0.001%(7s)    wiz: 0.255%
+# ndecks=4   prob~ 0.353% (55s)  sim: 0.385% ±0.001%(11s)   wiz: 0.387%*
 # ndecks=6   prob~ 0.406% (42s)  sim: 0.427% ±0.001%(15s)   wiz: 0.426%
 # ndecks=8   prob~ 0.432% (49s)  sim: 0.448% ±0.001%(19s)   wiz: 0.447%
-# ndecks=20  prob~ 0.480% (79s)  sim: 0.487% ±0.001%(51s)
+# ndecks=20  prob~ 0.480% (79s)  sim: 0.486% ±0.001%(51s)
 # ndecks=inf prob: 0.512% (15s)  sim: 0.512% ±0.001%(8s)
 
 # %%
@@ -6398,7 +6398,7 @@ if EFFORT >= 2:
   analyze_number_of_decks(Rules(cut_card=0))
 # Rules(cut_card=0) EFFORT=3
 # ndecks=1   prob: 0.013% (36s)  sim: 0.012% ±0.001%(10s)   wiz: 0.008%* bja: 0.021%+
-# ndecks=2   prob: 0.328% (16s)  sim: 0.329% ±0.001%(8s)    wiz: 0.328%  bja: 0.316%+
+# ndecks=2   prob: 0.328% (16s)  sim: 0.328% ±0.001%(8s)    wiz: 0.328%  bja: 0.316%+
 # ndecks=4   prob: 0.480% (40s)  sim: 0.481% ±0.001%(11s)   wiz: 0.481%  bja: 0.476%+
 # ndecks=6   prob: 0.530% (40s)  sim: 0.529% ±0.001%(16s)   wiz: 0.531%  bja: 0.529%
 # ndecks=8   prob: 0.555% (16s)  sim: 0.555% ±0.001%(20s)   wiz: 0.555%  bja: 0.554%
@@ -6410,7 +6410,7 @@ if EFFORT >= 2:
   analyze_number_of_decks(Rules(hit_soft17=False, cut_card=0))
 # Rules(hit_soft17=False, cut_card=0) EFFORT=3
 # ndecks=1   prob:-0.161% (10s)  sim:-0.161% ±0.001%(10s)   wiz:-0.166%* bja:-0.197%+
-# ndecks=2   prob: 0.144% (42s)  sim: 0.145% ±0.001%(8s)    wiz: 0.141%* bja: 0.130%+
+# ndecks=2   prob: 0.144% (42s)  sim: 0.144% ±0.001%(8s)    wiz: 0.141%* bja: 0.130%+
 # ndecks=4   prob: 0.287% (17s)  sim: 0.287% ±0.001%(11s)   wiz: 0.286%  bja: 0.282%+
 # ndecks=6   prob: 0.333% (41s)  sim: 0.333% ±0.001%(15s)   wiz: 0.334%  bja: 0.331%+
 # ndecks=8   prob: 0.357% (41s)  sim: 0.357% ±0.001%(20s)   wiz: 0.357%  bja: 0.335%+
@@ -6455,8 +6455,8 @@ def analyze_subset_of_player_actions(rules: Rules) -> None:
 # %%
 analyze_subset_of_player_actions(Rules())
 # Rules() EFFORT=3
-# all (default)             prob~ 0.530% (16s)  sim: 0.556% ±0.001%(15s)   wiz: 0.551%*
-# no SURRENDER              prob~ 0.618% (27s)  sim: 0.641% ±0.001%(15s)
+# all (default)             prob~ 0.530% (16s)  sim: 0.555% ±0.001%(15s)   wiz: 0.551%*
+# no SURRENDER              prob~ 0.618% (27s)  sim: 0.640% ±0.001%(15s)
 # no SPLIT,SURRENDER        prob~ 1.184% (0s)   sim: 1.202% ±0.001%(11s)
 # no DOUBLE,SURRENDER       prob~ 2.143% (23s)  sim: 2.161% ±0.001%(13s)
 # no DOUBLE,SPLIT,SURRENDER prob~ 2.565% (0s)   sim: 2.580% ±0.001%(10s)
@@ -6554,7 +6554,7 @@ def analyze_rule_variations(rules: Rules, pattern: str = '.') -> None:
 if EFFORT >= 1:
   analyze_rule_variations(Rules())
 # Rules() Strategy() EFFORT=3:
-#  house edge: prob~ 0.530% (0s)   sim: 0.556% ±0.001%(15s)   wiz: 0.551%*
+#  house edge: prob~ 0.530% (0s)   sim: 0.555% ±0.001%(15s)   wiz: 0.551%*
 # Rule variation               Prob change  Sim change  Wizard change  Wikipedia
 #  blackjack payout 2/1          -2.266       -2.263
 #  blackjack payout 6/5          +1.360       +1.358       +1.360        +1.4
@@ -6564,14 +6564,14 @@ if EFFORT >= 1:
 #  min 9 for double (Reno)       +0.106       +0.105       +0.106        +0.1
 #  min 10 for double (European)  +0.201       +0.199       +0.201        +0.2
 #  no double after split         +0.144       +0.143       +0.144        +0.12
-#  no surrender                  +0.088       +0.084       +0.088
-#  no splitting                  +0.559       +0.555
+#  no surrender                  +0.088       +0.085       +0.088
+#  no splitting                  +0.559       +0.556
 #  no resplitting                +0.053       +0.053       +0.053
 #  resplit only to 3 hands       +0.008       +0.007       +0.009
 #  unlimited resplit             -0.002       -0.002
 #  resplit aces                  -0.068       -0.068       -0.068        -0.03
 #  hit after split aces          -0.177       -0.178       -0.185        -0.13
-#  double after split aces       -0.080       -0.080
+#  double after split aces       -0.080       -0.081
 
 # %% [markdown]
 # When disallowing resplitting, the effect of "no double after split" (0.12%) exactly matches that
@@ -6580,7 +6580,7 @@ if EFFORT >= 1:
 # %%
 analyze_rule_variations(Rules(split_to_num_hands=2), pattern='no double after split')
 # Rules(split_to_num_hands=2) Strategy() EFFORT=3:
-#  house edge: prob~ 0.583% (6s)   sim: 0.609% ±0.001%(15s)   wiz: 0.604%*
+#  house edge: prob~ 0.583% (6s)   sim: 0.608% ±0.001%(15s)   wiz: 0.604%*
 # Rule variation               Prob change  Sim change  Wizard change  Wikipedia
 #  no double after split         +0.124       +0.123       +0.124        +0.12
 
@@ -6591,7 +6591,7 @@ analyze_rule_variations(Rules(split_to_num_hands=2), pattern='no double after sp
 # %%
 analyze_rule_variations(Rules(num_decks=1), pattern='resplit aces|hit after split aces')
 # Rules(num_decks=1) Strategy() EFFORT=3:
-#  house edge: prob~ 0.013% (11s)  sim: 0.150% ±0.001%(10s)   wiz: 0.121%*
+#  house edge: prob~ 0.013% (11s)  sim: 0.146% ±0.001%(10s)   wiz: 0.121%*
 # Rule variation               Prob change  Sim change  Wizard change  Wikipedia
 #  resplit aces                  -0.031       -0.031       -0.032        -0.03
 #  hit after split aces          -0.130       -0.131       -0.140        -0.13
@@ -6702,10 +6702,10 @@ analyze_number_of_decks(Rules(cut_card=0), COMPOSITION_DEPENDENT_STRATEGY)
 
 # Rules(cut_card=0) EFFORT=3
 # ndecks=1   prob:-0.030% (52s)  sim~-0.026% ±0.001%(10s)   wiz:-0.030%  bjstrat:-0.030%
-# ndecks=2   prob: 0.314% (35s)  sim~ 0.316% ±0.001%(77s)   wiz: 0.314%  bjstrat: 0.314%
+# ndecks=2   prob: 0.314% (35s)  sim~ 0.315% ±0.001%(77s)   wiz: 0.314%  bjstrat: 0.314%
 # ndecks=4   prob: 0.475% (56s)  sim~ 0.476% ±0.001%(82s)   wiz: 0.475%
 # ndecks=6   prob: 0.527% (79s)  sim~ 0.527% ±0.001%(48s)   wiz: 0.527%  bjstrat: 0.527%
-# ndecks=8   prob: 0.553% (80s)  sim~ 0.554% ±0.001%(54s)   wiz: 0.553%  bjstrat: 0.553%
+# ndecks=8   prob: 0.553% (80s)  sim~ 0.553% ±0.001%(54s)   wiz: 0.553%  bjstrat: 0.553%
 # ndecks=20  prob: 0.599% (85s)  sim~ 0.599% ±0.001%(125s)
 # ndecks=inf prob: 0.629% (36s)  sim~ 0.629% ±0.001%(72s)
 
@@ -6845,9 +6845,9 @@ analyze_composition_dependent_strategy_with_number_of_decks(Rules(cut_card=0))
 # Simulated house edge % using Rules(cut_card=0) and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
 #        1                0.012             -0.026           -0.0387
-#        2                0.329              0.316           -0.0131
-#        4                0.481              0.476           -0.0045
-#        6                0.529              0.527           -0.0022
+#        2                0.328              0.315           -0.0131
+#        4                0.481              0.476           -0.0046
+#        6                0.529              0.527           -0.0023
 #      inf                0.629              0.629            0.0000
 # Wizard house edge % using Rules(cut_card=0) and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
@@ -6872,10 +6872,10 @@ if EFFORT >= 1:
 #      inf                0.629              0.629            0.0000
 # Simulated house edge % using Rules() and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
-#        1                0.150              0.123           -0.0272
-#        2                0.404              0.391           -0.0131
-#        4                0.520              0.516           -0.0042
-#        6                0.556              0.554           -0.0021
+#        1                0.146              0.119           -0.0275
+#        2                0.403              0.389           -0.0131
+#        4                0.519              0.515           -0.0043
+#        6                0.555              0.553           -0.0021
 #      inf                0.629              0.629            0.0000
 # Wizard house edge % using Rules() and EFFORT=3:
 #  (No data for composition-dependent strategy with cut-card.)
@@ -6898,8 +6898,8 @@ if EFFORT >= 2:
 # Simulated house edge % using Rules(hit_soft17=False, cut_card=0) and EFFORT=3:
 #  Number of decks   Basic strategy   Composition-dependent   Change
 #        1               -0.161             -0.201           -0.0404
-#        2                0.145              0.129           -0.0155
-#        4                0.287              0.282           -0.0056
+#        2                0.144              0.129           -0.0155
+#        4                0.287              0.282           -0.0057
 #        6                0.333              0.330           -0.0025
 #      inf                0.426              0.426            0.0000
 # Wizard house edge % using Rules(hit_soft17=False, cut_card=0) and EFFORT=3:
@@ -7176,7 +7176,7 @@ if EFFORT >= 2:
   compute_house_edge_when_playing_a_fixed_number_of_hands()
 # EFFORT=3:
 # ndecks=1   prob: 0.013% (48s)  sim: 0.012% ±0.001%(10s)   wiz: 0.008%* bja: 0.021%+
-# ndecks=2   prob: 0.328% (19s)  sim: 0.329% ±0.001%(8s)    wiz: 0.328%  bja: 0.316%+
+# ndecks=2   prob: 0.328% (19s)  sim: 0.328% ±0.001%(8s)    wiz: 0.328%  bja: 0.316%+
 # ndecks=4   prob: 0.480% (19s)  sim: 0.481% ±0.001%(11s)   wiz: 0.481%  bja: 0.476%+
 # ndecks=6   prob: 0.530% (19s)  sim: 0.529% ±0.001%(15s)   wiz: 0.531%  bja: 0.529%
 # ndecks=8   prob: 0.555% (49s)  sim: 0.555% ±0.001%(20s)   wiz: 0.555%  bja: 0.554%
@@ -7269,13 +7269,13 @@ hh.analyze_functools_caches(globals())
 
 # EFFORT=3 whole notebook:
 # get_canonical_h..ards_and_total         879/inf        0.999 hit=      586_257 miss=          879
-# get_canonical_h..ards_and_total      14_496/inf        1.000 hit=   48_360_339 miss=       14_496
-# card_probabilities_helper         2_551_957/5_000_000  0.992 hit=  301_571_509 miss=    2_551_957
-# reward_after_de.._upcard_helper   8_879_960/10_000_000 0.979 hit=  418_689_504 miss=    8_879_960
-# reward_after_dealer_hits         22_000_000/22_000_000 0.754 hit=  256_240_150 miss=   83_520_227
+# get_canonical_h..ards_and_total      14_496/inf        1.000 hit=   48_365_735 miss=       14_496
+# card_probabilities_helper         2_551_957/5_000_000  0.992 hit=  305_162_180 miss=    2_551_957
+# reward_after_de.._upcard_helper   9_257_830/10_000_000 0.978 hit=  418_325_601 miss=    9_257_830
+# reward_after_dealer_hits         22_000_000/22_000_000 0.755 hit=  266_761_808 miss=   86_725_040
 # best_reward_est..on_first_total      49_778/inf        1.000 hit=  184_425_375 miss=       49_778
 # best_reward_est..total_of_cards   1_623_151/inf        0.472 hit=    1_450_263 miss=    1_623_151
-# best_reward_and_action           10_000_000/10_000_000 0.629 hit=  560_633_057 miss=  330_054_234
+# best_reward_and_action           10_000_000/10_000_000 0.629 hit=  560_634_392 miss=  330_061_767
 # reward_for_basic_strategy_total      60_784/inf        0.991 hit=    6_832_516 miss=       60_784
 # basic_strategy_tables                     0/inf        0.000 hit=            0 miss=            0
 # create_tables                           112/inf        0.000 hit=            0 miss=          112
