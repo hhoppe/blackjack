@@ -23,7 +23,7 @@
 #      for cut-card effects and precise split-hand rewards.
 #
 # - Support for many [rule variations](#Define-Rules)
-#   \(13 parameters including #decks, dealer hit soft17, cut-card, ...).
+#   \(13 parameters including number of decks, dealer hits soft 17, cut-card, ...).
 #
 # - Optimal [action tables](#Tables-for-basic-strategy) for
 #   [basic strategy](#Define-Action-and-Strategy)
@@ -31,8 +31,9 @@
 #   [Wikipedia](https://en.wikipedia.org/wiki/Blackjack#Basic_strategy) and
 #   [WizardOfOdds](https://wizardofodds.com/games/blackjack/strategy/calculator/) results.
 #
-# - Six [composition-dependent strategies](#Define-Action-and-Strategy)
-#   based on progressively greater levels of *attention*.
+# - Six [strategies](#Define-Action-and-Strategy)
+#   based on progressively greater levels of *attention*,
+#   from basic strategy to fully composition-dependent strategies.
 #   <!--(initial cards, all hand cards, cards in *prior split hands*, ...).-->
 #
 # - Computation of
@@ -59,27 +60,34 @@
 # - 2.0 (July 2022): add Monte Carlo simulation, hand analysis,
 #   and cut-card analysis.
 # - 3.0 (January 2025): add CUDA implementation of simulation.
+# - 3.1 (October 2026): fix the simulation of split hands (the dealer completes their hand once
+#   per round), single-hand shoes, and the end of the shoe; regenerate all results.
 
 # %% [markdown]
 # **Running this Jupyter notebook**:
-# - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU. <br/>
+# - We recommend starting a Jupyter server on a local machine with a fast multi-core CPU and
+#   ideally an NVIDIA GPU. <br/>
 #   (The notebook can also be [executed on a Colab server](
 #    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
 #   where it greatly benefits from a CUDA GPU.)
 # - Configure a Linux environment (e.g.,
 #   [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install)):
 #
-# ```bash
-#     sudo apt install python3-pip
-#     python3 -m pip install --upgrade pip
-#     pip install jupyterlab jupytext
-#     jupyter lab --no-browser
-# ```
+#   ```bash
+#   sudo apt install python3-venv
+#   python3 -m venv ~/venv-blackjack
+#   source ~/venv-blackjack/bin/activate
+#   pip install jupyterlab jupytext
+#   jupyter lab --no-browser
+#   ```
 #
 # - Open the URL (output by `jupyter lab`) using a web browser (e.g., Google Chrome on Windows).
-# - Load the notebook (`blackjack.ipynb` file).
+# - Load the notebook (`blackjack.ipynb` file); its first cells install the required packages.
 # - Evaluate all cells in `Code library` and then selectively evaluate `Results`.
-# - Adjust the `EFFORT` global variable to trade off speed and accuracy.
+# - Adjust the `EFFORT` global variable (or set the `EFFORT` environment variable) to trade off
+#   speed and accuracy.
+# - Alternatively, after installing the packages listed in its first code cell, run the paired
+#   script directly, e.g., `EFFORT=1 python blackjack.py`.
 
 # %%
 # ** Future to-do?
@@ -141,6 +149,11 @@ import tqdm
 from numba import cuda
 
 import random32
+
+# This file is a notebook rather than a module: `import blackjack` would fail to load the archived
+# pickles in `data/` (saved from `__main__`) and could deadlock its forked worker processes.
+if __name__ != '__main__':
+  raise ImportError('Run blackjack.py as a notebook or script rather than importing it.')
 
 # %%
 hh.patch_numba_cuda_for_python314()
@@ -3757,7 +3770,7 @@ def verify_monte_carlo_house_edge_cuda(num_decks: float, expected_edge: float) -
 if USE_CUDA:
   with hh.temporary_assignment(globals(), QUICK=True):
     print('# Tiny test to roughly check the house edge accuracy:')
-    verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001701)
+    verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001653)
 
 
 # %%
@@ -5227,7 +5240,7 @@ if 0:
     report_edge(Rules(num_decks=math.inf))
 
 # Rules(num_decks=inf) Strategy() EFFORT=1:
-#  house edge: prob: 0.629% (0s)   sim: 0.634% ±0.023%(0s)
+#  house edge: prob: 0.629% (0s)   sim: 0.622% ±0.023%(0s)
 # Rules(num_decks=inf) Strategy() EFFORT=2:
 #  house edge: prob: 0.629% (1s)   sim: 0.629% ±0.002%(1s)
 # Rules(num_decks=inf) Strategy() EFFORT=3:
@@ -5241,9 +5254,9 @@ if 0:
     report_edge(Rules())
 
 # Rules() Strategy() EFFORT=1:
-#  house edge: prob~ 0.545% (1s)   sim: 0.554% ±0.023%(0s)    wiz: 0.551%
+#  house edge: prob~ 0.545% (0s)   sim: 0.577% ±0.023%(0s)    wiz: 0.551%
 # Rules() Strategy() EFFORT=2:
-#  house edge: prob~ 0.530% (7s)   sim: 0.557% ±0.002%(2s)    wiz: 0.551%*
+#  house edge: prob~ 0.530% (5s)   sim: 0.555% ±0.002%(2s)    wiz: 0.551%*
 # Rules() Strategy() EFFORT=3:
 #  house edge: prob~ 0.530% (61s)  sim: 0.557% ±0.001%(21s)   wiz: 0.551%*
 
@@ -5276,20 +5289,20 @@ if 1:
 if USE_CUDA:
   with hh.temporary_assignment(globals(), QUICK=False):
     print(f'# With {EFFORT=}:')
-    verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001701)
-    verify_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004581)
-    verify_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005956)
-    verify_monte_carlo_house_edge_cuda(num_decks=6, expected_edge=0.006421)
-    verify_monte_carlo_house_edge_cuda(num_decks=8, expected_edge=0.006632)
+    verify_monte_carlo_house_edge_cuda(num_decks=1, expected_edge=0.001653)
+    verify_monte_carlo_house_edge_cuda(num_decks=2, expected_edge=0.004549)
+    verify_monte_carlo_house_edge_cuda(num_decks=4, expected_edge=0.005941)
+    verify_monte_carlo_house_edge_cuda(num_decks=6, expected_edge=0.006390)
+    verify_monte_carlo_house_edge_cuda(num_decks=8, expected_edge=0.006621)
     verify_monte_carlo_house_edge_cuda(num_decks=math.inf, expected_edge=0.007314)
 
 # With EFFORT=2:
-# ndecks=1   house edge 0.1695%   10,262,808,451 hands 10,423,098,010 hands/s
-# ndecks=2   house edge 0.4570%    9,699,694,703 hands 12,270,346,520 hands/s
-# ndecks=4   house edge 0.5954%    9,972,381,418 hands  8,496,713,806 hands/s
-# ndecks=6   house edge 0.6394%    9,706,938,664 hands  6,121,308,267 hands/s
-# ndecks=8   house edge 0.6623%    9,759,320,286 hands  4,476,829,777 hands/s
-# ndecks=inf house edge 0.7311%   10,000,008,000 hands 12,233,748,968 hands/s
+# ndecks=1   house edge 0.1653%   10,299,830,379 hands 12,486,103,410 hands/s
+# ndecks=2   house edge 0.4549%    9,745,233,310 hands 13,176,531,223 hands/s
+# ndecks=4   house edge 0.5941%   10,024,424,090 hands  8,927,584,655 hands/s
+# ndecks=6   house edge 0.6390%    9,760,220,068 hands  6,467,424,208 hands/s
+# ndecks=8   house edge 0.6621%    9,814,119,857 hands  4,746,161,517 hands/s
+# ndecks=inf house edge 0.7314%   10,000,008,000 hands 13,659,358,353 hands/s
 
 
 # %%
@@ -5510,11 +5523,11 @@ analyze_hand(((9, 9), 1), Rules(num_decks=1))
 # SPLIT reward differs significantly.
 
 # %%
-if 0:  # ~8 min.
+if 0:  # ~6 min.
   with temporary_effort(4):
     analyze_hand(((9, 9), 1), Rules(num_decks=1), actions=[Action.SPLIT])
 # hand=((9, 9), 1)  EFFORT=4
-#  SPLIT   id=-0.183940 sim=-0.183946±0.000012   cd=-0.183940  wiz:-0.189759* bjstrat:-0.183900
+#  SPLIT   id=-0.183940 sim=-0.183927±0.000014   cd=-0.183940  wiz:-0.189759* bjstrat:-0.183900
 
 # %%
 # Verify the 18 table cell differences with respect to the 6-deck strategy.
@@ -5971,7 +5984,7 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 )
 
 # Wonderful: for a 1-deck shoe, with EFFORT>=2, the only difference in optimal
-# full-composition-strategy actions wrt to Wizard and Bjstrat is a single hand:
+# full-composition-strategy actions wrt Wizard and Bjstrat is a single hand:
 #
 # hand=((9, 9), 1)  EFFORT=3
 #  cd     : SPLIT:-0.183912 STAND:-0.186130 SURRENDER:-0.500000 HIT:-0.637010 DOUBLE:-1.274020
@@ -5982,7 +5995,8 @@ look_for_hands_with_differences_in_calculated_optimal_actions(
 
 # Our SPLIT reward -0.1839 is higher than Wizard -0.1898 but equal to Bjstrat.
 # The sim=-0.1840±0.0001 in the cell below provides additional support that Bjstrat and our cd
-# are likely correct.  (Bjstrat shows SPL1=-0.1860 SPL2=-0.1841 SPL3=-0.1839).
+# are likely correct.  (Bjstrat shows SPL1=-0.1860 SPL2=-0.1841 SPL3=-0.1839 when allowing at
+# most 1, 2, or 3 splits; our default `split_to_num_hands=4` corresponds to SPL3.)
 
 # (With EFFORT=1 there are about 6 differences.)
 
@@ -6000,15 +6014,15 @@ analyze_hand(((9, 9), 1), Rules(num_decks=1))
 #  SPLIT   id=-0.183912 sim=-0.183951±0.000044   cd=-0.183912  wiz:-0.189759* bjstrat:-0.183900
 
 # %%
-if 0:  # ~9 min.
+if 0:  # ~7 min.
   with temporary_effort(4):
     analyze_hand(((9, 9), 1), Rules(num_decks=1))
 # hand=((9, 9), 1)  EFFORT=4
 # Best_actions: bs=SPLIT id=SPLIT cd=SPLIT wiz=STAND bjstrat=SPLIT
-#  STAND   id=-0.186130 sim=-0.186132±0.000008   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
-#  HIT     id=-0.637010 sim=-0.637010±0.000006   cd=-0.637010  wiz:-0.637010  bjstrat:-0.637000
-#  DOUBLE  id=-1.274020 sim=-1.274020±0.000012   cd=-1.274020  wiz:-1.274020  bjstrat:-1.274000
-#  SPLIT   id=-0.183940 sim=-0.183946±0.000012   cd=-0.183940  wiz:-0.189759* bjstrat:-0.183900
+#  STAND   id=-0.186130 sim=-0.186130±0.000008   cd=-0.186130  wiz:-0.186130  bjstrat:-0.186100
+#  HIT     id=-0.637010 sim=-0.637007±0.000006   cd=-0.637010  wiz:-0.637010  bjstrat:-0.637000
+#  DOUBLE  id=-1.274020 sim=-1.274012±0.000012   cd=-1.274020  wiz:-1.274020  bjstrat:-1.274000
+#  SPLIT   id=-0.183940 sim=-0.183927±0.000014   cd=-0.183940  wiz:-0.189759* bjstrat:-0.183900
 
 # %%
 look_for_hands_with_differences_in_calculated_optimal_actions(
@@ -6060,18 +6074,18 @@ if EFFORT >= 1:
 #  SPLIT   id=-0.497143 sim=-0.495803±0.000044*  cd=-0.497141  wiz:-0.445244* bjstrat:-0.495800*
 
 # %%
-if 0:  # ~9 min.
+if 0:  # ~7 min.
   with temporary_effort(4):
     test_some_split_hands1(actions=[Action.SPLIT])
 
 # hand=((10, 10), 9)  EFFORT=4
-#  SPLIT   id=-0.255830 sim=-0.255828±0.000011   cd=-0.255830  wiz:-0.183090* bjstrat:-0.255800
+#  SPLIT   id=-0.255830 sim=-0.255825±0.000012   cd=-0.255830  wiz:-0.183090* bjstrat:-0.255800
 
 # hand=((10, 10), 10)  EFFORT=4
-#  SPLIT   id=-0.316452 sim=-0.316449±0.000011   cd=-0.315144  wiz:-0.262691* bjstrat:-0.315300*
+#  SPLIT   id=-0.316452 sim=-0.316448±0.000012   cd=-0.315144  wiz:-0.262691* bjstrat:-0.315300*
 
 # hand=((10, 10), 1)  EFFORT=4
-#  SPLIT   id=-0.495792 sim=-0.495779±0.000012   cd=-0.495613  wiz:-0.445244* bjstrat:-0.495800*
+#  SPLIT   id=-0.495792 sim=-0.495787±0.000014   cd=-0.495613  wiz:-0.445244* bjstrat:-0.495800*
 
 
 # %%
