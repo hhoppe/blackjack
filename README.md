@@ -31,8 +31,7 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
   [WizardOfOdds](https://wizardofodds.com/games/blackjack/strategy/calculator/) results.
 
 - Six [strategies](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#Define-Action-and-Strategy)
-  based on progressively greater levels of *attention*,
-  from basic strategy to fully composition-dependent strategies.
+  with progressively greater *attention*, from basic strategy to full composition dependence.
   <!--(initial cards, all hand cards, cards in *prior split hands*, ...).-->
 
 - Computation of
@@ -48,9 +47,9 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
   and its [surprising oscillations](https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb#cut-card-graph).
 
 - Open-source Python, sped up with jitting (\~30x) and multiprocessing (\~10x),
-  simulating \~$10^{8}$ hands/s.
+  simulating $\sim 10^{8}$ hands/s.
 
-- GPU implementation using `numba.cuda`, simulating \~$10^{10}$ hands/s.
+- GPU implementation using `numba.cuda`, simulating $\sim 10^{10}$ hands/s.
 
 
 **Versions**:
@@ -60,32 +59,22 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
 - 2.0 (July 2022): add Monte Carlo simulation, hand analysis,
   and cut-card analysis.
 - 3.0 (January 2025): add CUDA implementation of simulation.
-- 3.1 (October 2026): fix the simulation of split hands (the dealer completes their hand once
-  per round), single-hand shoes, and the end of the shoe; regenerate all results.
+- 3.1 (October 2026): fix bugs in simulating split hands and shoe ends; regenerate all results.
 
 
 **Running this Jupyter notebook**:
 
 - The notebook requires Python 3.10 or later.
-- We recommend starting a Jupyter server on a local machine with a fast multi-core CPU and
-  ideally an NVIDIA GPU. <br/>
+- We recommend a Jupyter server on a local machine with a fast multi-core CPU and ideally an
+  NVIDIA GPU. <br/>
   (The notebook can also be executed on a
   [Colab server](
    https://colab.research.google.com/github/hhoppe/blackjack/blob/main/blackjack.ipynb),
   where it greatly benefits from a CUDA GPU.)
-- Within a Linux environment (e.g.,
-  [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install)):
-
-  ```bash
-  sudo apt install python3-venv
-  python3 -m venv ~/venv-blackjack
-  source ~/venv-blackjack/bin/activate
-  pip install jupyterlab jupytext
-  jupyter lab --no-browser
-  ```
-
-- Open the URL (output by `jupyter lab`) using a web browser (e.g., Google Chrome on Windows).
-- Load the notebook (`blackjack.ipynb` file); its first cells install the required packages.
+- [Install JupyterLab](https://jupyter.org/install) on Linux or macOS, or on Windows within
+  [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install),
+  because the multiprocessing uses `fork`.
+- Open the notebook (`blackjack.ipynb` file); its first cells install the required packages.
 - Evaluate all cells in `Code library` and then selectively evaluate `Results`.
 - Adjust the `EFFORT` global variable (or set the `EFFORT` environment variable) to trade off
   speed and accuracy.
@@ -103,8 +92,6 @@ Blackjack &mdash; *"the most widely played casino banking game in the world"*.
 - https://www.onlinegambling.com/blackjack/odds/
 - https://www.onlineunitedstatescasinos.com/las-vegas/blackjack/
 - https://en.wikipedia.org/wiki/Gambling_mathematics
-- https://www.gamingtheodds.com/blackjack/house-edge/ -- looks like truncated results of
-  WizardOfOdds assuming no late surrender.
 - https://github.com/johntelforduk/blackjack
   -- Python simulator to evaluate house edge for various strategies.
 - [First reddit post](
