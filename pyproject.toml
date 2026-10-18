@@ -56,6 +56,7 @@ project-excludes = ["Other/**", "blackjack_other*"]
 untyped-import = false
 unnecessary-type-conversion = false
 redundant-condition = false
+unreachable = false
 
 [tool.ruff]
 line-length = 100
